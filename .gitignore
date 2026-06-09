@@ -1,0 +1,10 @@
+.env
+backend/.env
+frontend/.env.local
+frontend/node_modules/
+frontend/.next/
+backend/vendor/
+backend/storage/logs/*.log
+backend/bootstrap/cache/*.php
+*.DS_Store
+mysql/data/

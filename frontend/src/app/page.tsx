@@ -1,0 +1,196 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { RefreshCw, Bell, Settings, MapPin, Clock } from 'lucide-react'
+import { format } from 'date-fns'
+import type { WeatherReading, WeatherAlert, WeatherStats } from '@/types/weather'
+import { api } from '@/lib/api'
+import CurrentConditions from '@/components/CurrentConditions'
+import MetricCards from '@/components/MetricCards'
+import AirQuality from '@/components/AirQuality'
+import HistoryChart from '@/components/HistoryChart'
+import AlertPanel from '@/components/AlertPanel'
+import ThresholdsPanel from '@/components/ThresholdsPanel'
+
+export default function Dashboard() {
+  const [current, setCurrent] = useState<WeatherReading | null>(null)
+  const [alerts, setAlerts] = useState<WeatherAlert[]>([])
+  const [stats, setStats] = useState<WeatherStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'settings'>('dashboard')
+  const [historyHours, setHistoryHours] = useState(24)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadData = useCallback(async () => {
+    try {
+      setError(null)
+      const [cur, al, st] = await Promise.all([
+        api.weather.current() as Promise<WeatherReading>,
+        api.alerts.list() as Promise<WeatherAlert[]>,
+        api.weather.stats(historyHours) as Promise<WeatherStats>,
+      ])
+      setCurrent(cur)
+      setAlerts(al)
+      setStats(st)
+      setLastUpdated(new Date())
+    } catch (e) {
+      setError('Could not reach the backend. Is it running?')
+    } finally {
+      setLoading(false)
+    }
+  }, [historyHours])
+
+  useEffect(() => {
+    loadData()
+    const interval = setInterval(loadData, 60_000)
+    return () => clearInterval(interval)
+  }, [loadData])
+
+  const triggerFetch = async () => {
+    setFetching(true)
+    try {
+      await api.weather.fetch()
+      await new Promise(r => setTimeout(r, 3000))
+      await loadData()
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  const unacknowledgedCount = alerts.filter(a => !a.acknowledged).length
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Header */}
+      <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🌤️</span>
+            <span className="font-semibold text-slate-100">Weather Dashboard</span>
+            {current && (
+              <span className="flex items-center gap-1 text-slate-400 text-sm ml-2">
+                <MapPin size={12} />
+                {current.location_name}
+              </span>
+            )}
+          </div>
+
+          <nav className="flex items-center gap-1">
+            {(['dashboard', 'alerts', 'settings'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors relative ${
+                  activeTab === tab
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                {tab === 'alerts' && unacknowledgedCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
+                    {unacknowledgedCount > 9 ? '9+' : unacknowledgedCount}
+                  </span>
+                )}
+                {tab === 'alerts' ? <Bell size={14} className="inline mr-1" /> : tab === 'settings' ? <Settings size={14} className="inline mr-1" /> : null}
+                {tab}
+              </button>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3">
+            {lastUpdated && (
+              <span className="text-slate-500 text-xs flex items-center gap-1">
+                <Clock size={11} />
+                {format(lastUpdated, 'HH:mm:ss')}
+              </span>
+            )}
+            <button
+              onClick={triggerFetch}
+              disabled={fetching}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm transition-colors"
+            >
+              <RefreshCw size={13} className={fetching ? 'animate-spin' : ''} />
+              {fetching ? 'Fetching…' : 'Fetch Now'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-950/50 border border-red-800/50 rounded-lg text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64 text-slate-400">
+            <RefreshCw size={24} className="animate-spin mr-3" />
+            Loading weather data…
+          </div>
+        ) : (
+          <>
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                {current ? (
+                  <>
+                    <CurrentConditions reading={current} stats={stats} />
+                    <MetricCards reading={current} />
+                    <AirQuality reading={current} />
+                    <div className="glass rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-semibold text-slate-200">History</h2>
+                        <div className="flex gap-2">
+                          {[6, 24, 48, 168].map(h => (
+                            <button
+                              key={h}
+                              onClick={() => setHistoryHours(h)}
+                              className={`px-2 py-1 rounded text-xs transition-colors ${
+                                historyHours === h
+                                  ? 'bg-sky-600 text-white'
+                                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                              }`}
+                            >
+                              {h < 48 ? `${h}h` : `${h / 24}d`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <HistoryChart hours={historyHours} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-16 text-slate-400">
+                    <p className="text-5xl mb-4">🌡️</p>
+                    <p className="text-lg mb-2">No weather data yet</p>
+                    <p className="text-sm mb-4">Click "Fetch Now" to get your first reading</p>
+                    <button
+                      onClick={triggerFetch}
+                      disabled={fetching}
+                      className="px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm disabled:opacity-50"
+                    >
+                      {fetching ? 'Fetching…' : 'Fetch Weather Data'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'alerts' && (
+              <AlertPanel
+                alerts={alerts}
+                onRefresh={loadData}
+              />
+            )}
+
+            {activeTab === 'settings' && (
+              <ThresholdsPanel onUpdate={loadData} />
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
