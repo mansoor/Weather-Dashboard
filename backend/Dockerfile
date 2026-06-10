@@ -15,10 +15,10 @@ COPY composer.json composer.lock* ./
 RUN composer install --no-scripts --no-autoloader --prefer-dist --no-security-blocking
 
 COPY . .
-RUN composer dump-autoload --optimize
-
 RUN mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
+
+RUN composer dump-autoload --optimize
 
 EXPOSE 8000
 
