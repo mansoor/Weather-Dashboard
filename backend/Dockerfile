@@ -27,6 +27,11 @@ RUN mkdir -p public \
         bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Bake a minimal .env into the image — just enough for dotenv not to crash on boot.
+# All real config (DB, Redis, keys, etc.) is injected by Docker at runtime via
+# environment variables, which Laravel's env() reads directly without needing .env.
+RUN echo 'APP_KEY=' > .env
+
 # Optimise autoloader — triggers package:discover which needs bootstrap/cache + public/
 RUN composer dump-autoload --optimize
 
