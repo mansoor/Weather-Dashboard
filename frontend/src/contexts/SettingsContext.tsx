@@ -45,7 +45,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const convertTemp = useCallback((celsius: number | null | undefined): number | null => {
     if (celsius === null || celsius === undefined) return null
-    return unit === 'F' ? toF(celsius) : celsius
+    const n = Number(celsius)
+    if (!Number.isFinite(n)) return null
+    return unit === 'F' ? toF(n) : n
   }, [unit])
 
   const fmtTemp = useCallback((celsius: number | null | undefined, decimals = 1): string => {
