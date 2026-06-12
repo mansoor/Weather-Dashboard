@@ -20,9 +20,8 @@ RUN composer install --no-scripts --no-autoloader --prefer-dist --no-security-bl
 # Copy application source
 COPY . .
 
-# Create required directories (public/ needed by package:discover; storage/ by Laravel)
-RUN mkdir -p public \
-        storage/framework/{sessions,views,cache} \
+# Create required runtime directories
+RUN mkdir -p storage/framework/{sessions,views,cache} \
         storage/logs \
         bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
