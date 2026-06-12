@@ -32,16 +32,18 @@ export default function HistoryChart({ hours }: { hours: number }) {
       .finally(() => setLoading(false))
   }, [hours])
 
+  const n = (v: number | null | undefined) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null)
+
   const chartData = data.map(r => ({
     time: format(parseISO(r.recorded_at), hours <= 24 ? 'HH:mm' : 'MMM d HH:mm'),
-    temperature: r.temperature,
-    feels_like: r.feels_like,
-    humidity: r.humidity,
-    wind_speed: r.wind_speed,
-    wind_gusts: r.wind_gusts,
-    precipitation: r.precipitation,
-    precipitation_probability: r.precipitation_probability,
-    aqi: r.aqi,
+    temperature: n(r.temperature),
+    feels_like: n(r.feels_like),
+    humidity: n(r.humidity),
+    wind_speed: n(r.wind_speed),
+    wind_gusts: n(r.wind_gusts),
+    precipitation: n(r.precipitation),
+    precipitation_probability: n(r.precipitation_probability),
+    aqi: n(r.aqi),
   }))
 
   if (loading) return (

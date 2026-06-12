@@ -34,7 +34,7 @@ export default function CurrentConditions({
         <div className="flex flex-wrap gap-4">
           <StatPill icon={<Droplets size={14} />} label="Humidity" value={`${fmt(reading.humidity, 0)}%`} />
           <StatPill icon={<Wind size={14} />} label="Wind" value={`${fmt(reading.wind_speed, 1)} km/h ${windDirection(reading.wind_direction)}`} />
-          <StatPill icon={<Eye size={14} />} label="Visibility" value={`${reading.visibility != null ? (reading.visibility / 1000).toFixed(1) : '—'} km`} />
+          <StatPill icon={<Eye size={14} />} label="Visibility" value={`${fmt(reading.visibility != null ? Number(reading.visibility) / 1000 : null, 1)} km`} />
           {stats && (
             <>
               <StatPill icon={<ArrowUp size={14} className="text-red-400" />} label="High" value={fmtTemp(stats.temp_max, 1)} />
