@@ -10,6 +10,13 @@ COPY . .
 # Ensure public dir exists so the runner COPY never fails
 RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Added as suggested by rigger
+ARG FASTIFY_API_URL
+ARG NEXT_PUBLIC_API_URL
+ENV FASTIFY_API_URL=$FASTIFY_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
 FROM node:20-alpine AS runner
