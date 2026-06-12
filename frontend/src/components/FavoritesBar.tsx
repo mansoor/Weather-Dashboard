@@ -58,7 +58,7 @@ export default function FavoritesBar({ currentLocation, onSelect }: Props) {
         Math.abs(f.longitude - currentLocation.longitude) < 0.01
       )
       if (idx >= 0) favs.splice(idx, 1)
-      else favs.push(currentLocation)
+      else favs.push({ ...currentLocation, country: null })
       saveGuestFavs(favs)
       setGuestFavs([...favs])
     }
