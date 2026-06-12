@@ -58,6 +58,7 @@ services:
       ALERT_TEMP_LOW: ${ALERT_TEMP_LOW:-0}
       ALERT_WIND_HIGH: ${ALERT_WIND_HIGH:-50}
       ALERT_AQI_HIGH: ${ALERT_AQI_HIGH:-3}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       MAIL_MAILER: ${MAIL_MAILER:-log}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
@@ -65,6 +66,9 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@weather.local}
       ALERT_EMAIL: ${ALERT_EMAIL:-}
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_KEY: ${APPRISE_KEY:-weather}
+      APPRISE_NOTIFICATION_URLS: ${APPRISE_NOTIFICATION_URLS:-}
     volumes:
       - ./backend:/var/www/html
       - backend_storage:/var/www/html/storage
@@ -107,6 +111,10 @@ services:
       MAIL_MAILER: ${MAIL_MAILER:-log}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@weather.local}
       ALERT_EMAIL: ${ALERT_EMAIL:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_KEY: ${APPRISE_KEY:-}
+      APPRISE_NOTIFICATION_URLS: ${APPRISE_NOTIFICATION_URLS:-}
     volumes:
       - ./backend:/var/www/html
       - backend_storage:/var/www/html/storage
@@ -147,6 +155,10 @@ services:
       MAIL_MAILER: ${MAIL_MAILER:-log}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@weather.local}
       ALERT_EMAIL: ${ALERT_EMAIL:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      APPRISE_URL: ${APPRISE_URL:-http://apprise:8000}
+      APPRISE_KEY: ${APPRISE_KEY:-}
+      APPRISE_NOTIFICATION_URLS: ${APPRISE_NOTIFICATION_URLS:-}
     volumes:
       - ./backend:/var/www/html
       - backend_storage:/var/www/html/storage
@@ -156,15 +168,27 @@ services:
       redis:
         condition: service_healthy
 
+  apprise:
+    image: caronc/apprise:latest
+    container_name: weather_apprise
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - apprise_data:/config
+    environment:
+      APPRISE_STATELESS_URLS: ${APPRISE_NOTIFICATION_URLS:-}
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        FASTIFY_API_URL: http://backend:8000/api
     container_name: weather_frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
-      FASTIFY_API_URL: http://backend:8000/api
       PORT: 3000
       HOSTNAME: "0.0.0.0"
     ports:
@@ -172,18 +196,7 @@ services:
     depends_on:
       - backend
 
-  nginx:
-    image: nginx:alpine
-    container_name: weather_nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - backend
-      - frontend
-
 volumes:
   mysql_data:
   backend_storage:
+  apprise_data:

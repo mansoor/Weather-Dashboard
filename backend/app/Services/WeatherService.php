@@ -16,6 +16,42 @@ class WeatherService
         $this->client = new Client(['timeout' => 15]);
     }
 
+    /** Fetch live weather for any location without storing to the database. */
+    public function fetchLive(float $lat, float $lon, string $name): array
+    {
+        $weather = $this->fetchWeather($lat, $lon);
+        $aqi = $this->fetchAirQuality($lat, $lon);
+
+        return [
+            'location_name' => $name,
+            'latitude' => $lat,
+            'longitude' => $lon,
+            'temperature' => $weather['temperature'] ?? null,
+            'feels_like' => $weather['apparent_temperature'] ?? null,
+            'humidity' => $weather['relative_humidity_2m'] ?? null,
+            'pressure' => $weather['surface_pressure'] ?? null,
+            'wind_speed' => $weather['wind_speed_10m'] ?? null,
+            'wind_direction' => $weather['wind_direction_10m'] ?? null,
+            'wind_gusts' => $weather['wind_gusts_10m'] ?? null,
+            'precipitation' => $weather['precipitation'] ?? null,
+            'precipitation_probability' => $weather['precipitation_probability'] ?? null,
+            'cloud_cover' => $weather['cloud_cover'] ?? null,
+            'visibility' => $weather['visibility'] ?? null,
+            'uv_index' => $weather['uv_index'] ?? null,
+            'weather_code' => $weather['weather_code'] ?? null,
+            'weather_description' => $this->decodeWeatherCode($weather['weather_code'] ?? 0),
+            'is_day' => ($weather['is_day'] ?? 1) === 1,
+            'aqi' => $aqi['european_aqi'] ?? null,
+            'aqi_label' => $this->decodeAqi($aqi['european_aqi'] ?? null),
+            'pm25' => $aqi['pm2_5'] ?? null,
+            'pm10' => $aqi['pm10'] ?? null,
+            'co' => $aqi['carbon_monoxide'] ?? null,
+            'no2' => $aqi['nitrogen_dioxide'] ?? null,
+            'o3' => $aqi['ozone'] ?? null,
+            'recorded_at' => now()->toIso8601String(),
+        ];
+    }
+
     public function fetchAndStore(): WeatherReading
     {
         $lat = config('weather.location.lat');

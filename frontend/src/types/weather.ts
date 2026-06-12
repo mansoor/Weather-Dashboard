@@ -1,5 +1,5 @@
 export interface WeatherReading {
-  id: number
+  id?: number
   location_name: string
   latitude: number
   longitude: number
@@ -63,4 +63,32 @@ export interface WeatherStats {
   precipitation_total: number | null
   aqi_avg: number | null
   reading_count: number
+}
+
+export interface GeoResult {
+  name: string
+  country: string | null
+  admin1: string | null
+  latitude: number
+  longitude: number
+}
+
+export interface User {
+  id: number
+  name: string
+  email: string
+  email_verified_at: string | null
+}
+
+export interface UserLocation {
+  id: number
+  name: string
+  country: string | null
+  latitude: number
+  longitude: number
+  is_default: boolean
+}
+
+export interface UserSettings {
+  temp_unit: 'C' | 'F'
 }
