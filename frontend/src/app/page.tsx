@@ -87,7 +87,7 @@ export default function Dashboard() {
 
   const handleLocationSelect = (result: GeoResult | ActiveLocation) => {
     const loc: ActiveLocation = {
-      name: 'name' in result ? result.name : result.name,
+      name: result.name,
       latitude: result.latitude,
       longitude: result.longitude,
     }
