@@ -45,7 +45,8 @@ export function severityColor(severity: string): string {
   }
 }
 
-export function fmt(value: number | null | undefined, decimals = 1): string {
+export function fmt(value: number | string | null | undefined, decimals = 1): string {
   if (value === null || value === undefined) return '—'
-  return value.toFixed(decimals)
+  const n = Number(value)
+  return Number.isFinite(n) ? n.toFixed(decimals) : '—'
 }
