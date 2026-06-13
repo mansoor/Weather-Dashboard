@@ -28,6 +28,7 @@ class ForecastController extends Controller
                     ]),
                     'daily' => implode(',', [
                         'temperature_2m_max', 'temperature_2m_min', 'sunrise', 'sunset',
+                        'moonrise', 'moonset', 'moon_phase',
                         'precipitation_sum', 'precipitation_probability_max',
                         'weather_code', 'wind_speed_10m_max', 'uv_index_max',
                     ]),
@@ -86,12 +87,15 @@ class ForecastController extends Controller
         }
 
         return response()->json([
-            'timezone'   => $data['timezone'] ?? null,
-            'sunrise'    => $data['daily']['sunrise'][0] ?? null,
-            'sunset'     => $data['daily']['sunset'][0]  ?? null,
-            'dew_point'  => $data['current']['dew_point_2m'] ?? null,
-            'hourly'     => $hourly,
-            'daily'      => $daily,
+            'timezone'    => $data['timezone'] ?? null,
+            'sunrise'     => $data['daily']['sunrise'][0]    ?? null,
+            'sunset'      => $data['daily']['sunset'][0]     ?? null,
+            'moonrise'    => $data['daily']['moonrise'][0]   ?? null,
+            'moonset'     => $data['daily']['moonset'][0]    ?? null,
+            'moon_phase'  => $data['daily']['moon_phase'][0] ?? null,
+            'dew_point'   => $data['current']['dew_point_2m'] ?? null,
+            'hourly'      => $hourly,
+            'daily'       => $daily,
         ]);
     }
 }

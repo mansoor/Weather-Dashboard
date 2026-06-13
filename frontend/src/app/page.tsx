@@ -373,7 +373,16 @@ export default function Dashboard() {
                     <AirQuality reading={current} />
                     {forecast && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <SunriseSunset sunrise={forecast.sunrise} sunset={forecast.sunset} timezone={forecast.timezone} />
+                        <SunriseSunset
+                          sunrise={forecast.sunrise}
+                          sunset={forecast.sunset}
+                          moonrise={forecast.moonrise}
+                          moonset={forecast.moonset}
+                          moon_phase={forecast.moon_phase}
+                          timezone={forecast.timezone}
+                          hourly={forecast.hourly}
+                          currentTemp={current?.temperature}
+                        />
                         <DailyForecast daily={forecast.daily} />
                       </div>
                     )}

@@ -140,6 +140,9 @@ export interface ForecastData {
   timezone: string | null
   sunrise: string | null
   sunset: string | null
+  moonrise: string | null
+  moonset: string | null
+  moon_phase: number | null
   dew_point: number | null
   hourly: HourlyPoint[]
   daily: DailyPoint[]
