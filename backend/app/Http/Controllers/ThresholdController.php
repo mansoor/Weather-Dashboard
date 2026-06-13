@@ -18,10 +18,13 @@ class ThresholdController extends Controller
         $threshold = AlertThreshold::findOrFail($id);
 
         $validated = $request->validate([
-            'value' => 'sometimes|numeric',
-            'enabled' => 'sometimes|boolean',
+            'value'        => 'sometimes|numeric',
+            'enabled'      => 'sometimes|boolean',
             'notify_email' => 'sometimes|boolean',
-            'severity' => 'sometimes|in:info,warning,critical',
+            'severity'     => 'sometimes|in:info,warning,critical',
+            'monitor_lat'  => 'sometimes|nullable|numeric|between:-90,90',
+            'monitor_lon'  => 'sometimes|nullable|numeric|between:-180,180',
+            'monitor_name' => 'sometimes|nullable|string|max:100',
         ]);
 
         $threshold->update($validated);

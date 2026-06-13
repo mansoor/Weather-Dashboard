@@ -1,40 +1,108 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Settings, Save } from 'lucide-react'
-import type { AlertThreshold } from '@/types/weather'
+import { CheckCircle, MapPin, Save, Settings } from 'lucide-react'
+import type { AlertThreshold, UserLocation } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useSettings } from '@/contexts/SettingsContext'
 
-export default function ThresholdsPanel({ onUpdate }: { onUpdate: () => void }) {
+interface MonitorLocation {
+  name: string
+  latitude: number
+  longitude: number
+}
+
+interface Props {
+  onUpdate: () => void
+  locations?: UserLocation[]
+  defaultLocation?: { name: string; latitude: number; longitude: number } | null
+}
+
+export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocation }: Props) {
   const { unit, convertTemp, convertToC, unitLabel } = useSettings()
   const [thresholds, setThresholds] = useState<AlertThreshold[]>([])
   const [saving, setSaving] = useState<number | null>(null)
-  // edits store values in display unit (°F when unit=F, °C when unit=C)
-  const [edits, setEdits] = useState<Record<number, Partial<AlertThreshold & { displayValue: number }>>>({})
+  const [savingLoc, setSavingLoc] = useState(false)
+  const [locSaved, setLocSaved] = useState(false)
+  const [edits, setEdits] = useState<Record<number, Partial<AlertThreshold>>>({})
 
   useEffect(() => {
     api.thresholds.list().then(d => setThresholds(d as AlertThreshold[]))
   }, [])
 
-  // Re-clear edits when unit changes to avoid stale converted values
+  useEffect(() => { setEdits({}) }, [unit])
+
+  // Build the selectable location list
+  const locationOptions: MonitorLocation[] = [
+    ...(defaultLocation ? [defaultLocation] : []),
+    ...locations.filter(l =>
+      !defaultLocation ||
+      Math.abs(l.latitude - defaultLocation.latitude) > 0.01 ||
+      Math.abs(l.longitude - defaultLocation.longitude) > 0.01
+    ),
+  ]
+
+  // Derive selected index from what's stored on the first threshold
+  const storedLat = thresholds[0]?.monitor_lat ?? null
+  const storedLon = thresholds[0]?.monitor_lon ?? null
+
+  // Which option chip is selected — derive from stored value; -1 = "All locations"
+  const [selectedIdx, setSelectedIdx] = useState<number>(-1)
+
   useEffect(() => {
-    setEdits({})
-  }, [unit])
+    if (storedLat === null) { setSelectedIdx(-1); return }
+    const idx = locationOptions.findIndex(l =>
+      Math.abs(l.latitude - storedLat) < 0.05 &&
+      Math.abs(l.longitude - (storedLon ?? 0)) < 0.05
+    )
+    setSelectedIdx(idx >= 0 ? idx : -1)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thresholds.length, storedLat, storedLon])
+
+  const selectedLoc = selectedIdx >= 0 ? locationOptions[selectedIdx] : null
+
+  const applyLocationToAll = async () => {
+    setSavingLoc(true)
+    setLocSaved(false)
+    try {
+      await Promise.all(thresholds.map(t =>
+        api.thresholds.update(t.id, {
+          monitor_lat: selectedLoc?.latitude ?? null,
+          monitor_lon: selectedLoc?.longitude ?? null,
+          monitor_name: selectedLoc?.name ?? null,
+        })
+      ))
+      setThresholds(prev => prev.map(t => ({
+        ...t,
+        monitor_lat: selectedLoc?.latitude ?? null,
+        monitor_lon: selectedLoc?.longitude ?? null,
+        monitor_name: selectedLoc?.name ?? null,
+      })))
+      setLocSaved(true)
+      setTimeout(() => setLocSaved(false), 3000)
+    } finally {
+      setSavingLoc(false)
+    }
+  }
+
+  const locationChanged = selectedIdx >= 0
+    ? selectedLoc && (
+        Math.abs((storedLat ?? -999) - selectedLoc.latitude) > 0.01 ||
+        Math.abs((storedLon ?? -999) - selectedLoc.longitude) > 0.01
+      )
+    : storedLat !== null  // "All locations" selected but DB has a specific location
 
   const isTempThreshold = (t: AlertThreshold) => t.unit === '°C'
 
   const displayValue = (t: AlertThreshold): number => {
     const storedValue = (edits[t.id]?.value as number | undefined) ?? t.value
     if (isTempThreshold(t)) {
-      // storedValue is always in °C; convert to display unit
       return Number((convertTemp(storedValue) ?? storedValue).toFixed(1))
     }
     return storedValue
   }
 
   const edit = (t: AlertThreshold, rawInput: number) => {
-    // Always store the °C equivalent in the edit record
     const valueInC = isTempThreshold(t) ? convertToC(rawInput) : rawInput
     setEdits(prev => ({ ...prev, [t.id]: { ...(prev[t.id] || {}), value: valueInC } }))
   }
@@ -70,6 +138,67 @@ export default function ThresholdsPanel({ onUpdate }: { onUpdate: () => void }) 
         <p className="text-slate-500 text-sm ml-2">Configure when alerts are triggered</p>
       </div>
 
+      {/* ── Monitoring location selector ── */}
+      <div className="glass rounded-xl px-5 py-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <MapPin size={14} className="text-sky-500 shrink-0" />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Monitoring location</span>
+          <span className="text-xs text-slate-400 ml-1">— thresholds only fire for readings from this location</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* "All locations" option */}
+          <button
+            onClick={() => setSelectedIdx(-1)}
+            className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+              selectedIdx === -1
+                ? 'bg-slate-700 border-slate-500 text-white dark:bg-slate-600'
+                : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+            }`}
+          >
+            All locations
+          </button>
+
+          {locationOptions.map((loc, i) => (
+            <button
+              key={i}
+              onClick={() => setSelectedIdx(i)}
+              className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                selectedIdx === i
+                  ? 'bg-sky-600 border-sky-500 text-white'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600'
+              }`}
+            >
+              {loc.name}
+            </button>
+          ))}
+
+          {locationChanged && (
+            <button
+              onClick={applyLocationToAll}
+              disabled={savingLoc}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg text-xs text-white transition-colors ml-2"
+            >
+              <Save size={11} />
+              {savingLoc ? 'Applying…' : 'Apply to all thresholds'}
+            </button>
+          )}
+
+          {locSaved && (
+            <span className="flex items-center gap-1 text-xs text-emerald-500 ml-1">
+              <CheckCircle size={12} /> Saved
+            </span>
+          )}
+        </div>
+
+        <p className="text-xs text-slate-400">
+          {selectedLoc
+            ? <>Alerts fire only for <strong className="text-slate-300">{selectedLoc.name}</strong> ({selectedLoc.latitude.toFixed(3)}°, {selectedLoc.longitude.toFixed(3)}°).</>
+            : 'Alerts fire for readings from any location.'}
+        </p>
+      </div>
+
+      {/* ── Thresholds table ── */}
       <div className="glass rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -143,7 +272,7 @@ export default function ThresholdsPanel({ onUpdate }: { onUpdate: () => void }) 
       </div>
 
       <p className="text-slate-500 text-xs">
-        Temperature thresholds are shown in your selected unit ({unitLabel}) and converted automatically on save.
+        Temperature thresholds are shown in {unitLabel} and converted automatically on save.
         Enable "Email" to receive email notifications (requires MAIL_* config).
       </p>
     </div>

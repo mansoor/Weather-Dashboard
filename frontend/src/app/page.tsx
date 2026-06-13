@@ -282,7 +282,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Row 2: full-width scrollable saved locations ── */}
-        <div className="max-w-7xl mx-auto px-4 py-1 border-t border-slate-100 dark:border-slate-800/60 min-h-[2rem] flex items-center">
+        <div className="max-w-7xl mx-auto px-4 py-2 border-t border-slate-100 dark:border-slate-800/60 min-h-[2.5rem] flex items-center">
           <FavoritesBar
             currentLocation={displayLocation}
             onSelect={handleLocationSelect}
@@ -291,7 +291,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Row 3: nav tabs (center) | unit toggle + fetch (right) ── */}
-        <div className="max-w-7xl mx-auto px-4 pb-2 flex items-center">
+        <div className="max-w-7xl mx-auto px-4 pt-1 pb-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center">
           {/* Left spacer = same width as right controls to keep tabs centered */}
           <div className="flex-1" />
 
@@ -320,16 +320,14 @@ export default function Dashboard() {
 
           <div className="flex-1 flex items-center justify-end gap-2">
             <UnitToggle />
-            {!activeLocation && (
-              <button
-                onClick={triggerFetch}
-                disabled={fetching}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white transition-colors"
-              >
-                <RefreshCw size={13} className={fetching ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">{fetching ? 'Fetching…' : 'Fetch'}</span>
-              </button>
-            )}
+            <button
+              onClick={triggerFetch}
+              disabled={fetching}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white transition-colors"
+            >
+              <RefreshCw size={13} className={fetching ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">{fetching ? 'Fetching…' : 'Fetch'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -388,7 +386,11 @@ export default function Dashboard() {
 
             {activeTab === 'settings' && (
               <>
-                <ThresholdsPanel onUpdate={loadData} />
+                <ThresholdsPanel
+                  onUpdate={loadData}
+                  locations={user ? locations : []}
+                  defaultLocation={displayLocation}
+                />
                 <AccountSettings />
               </>
             )}

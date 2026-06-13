@@ -30,6 +30,16 @@ class AlertService
         $thresholds = AlertThreshold::where('enabled', true)->get();
 
         foreach ($thresholds as $threshold) {
+            // If this threshold is scoped to a location, skip readings from other locations
+            if ($threshold->monitor_lat !== null && $threshold->monitor_lon !== null) {
+                if (
+                    abs($reading->latitude - $threshold->monitor_lat) > 0.05 ||
+                    abs($reading->longitude - $threshold->monitor_lon) > 0.05
+                ) {
+                    continue;
+                }
+            }
+
             $field = $this->metricMap[$threshold->metric] ?? $threshold->metric;
             $value = $reading->{$field};
 

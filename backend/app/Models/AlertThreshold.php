@@ -15,11 +15,16 @@ class AlertThreshold extends Model
         'label',
         'enabled',
         'notify_email',
+        'monitor_lat',
+        'monitor_lon',
+        'monitor_name',
     ];
 
     protected $casts = [
-        'value' => 'float',
-        'enabled' => 'boolean',
-        'notify_email' => 'boolean',
+        'value'       => 'float',
+        'enabled'     => 'boolean',
+        'notify_email'=> 'boolean',
+        'monitor_lat' => 'float',
+        'monitor_lon' => 'float',
     ];
 }
