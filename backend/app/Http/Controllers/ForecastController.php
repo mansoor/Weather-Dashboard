@@ -71,6 +71,28 @@ class ForecastController extends Controller
             ];
         }
 
+        // All 24 hours of the current local day (observed past + forecast future) —
+        // used by the geo-clock so every hour position on the dial has a temperature.
+        $tzName    = $data['timezone'] ?? 'UTC';
+        $todayStr  = now()->setTimezone($tzName)->format('Y-m-d');
+        $nowHourInt = (int) now()->setTimezone($tzName)->format('G');
+        $dayHourly = [];
+        foreach ($hourlyTimes as $i => $t) {
+            if (strpos($t, $todayStr) !== 0) continue;
+            $hr = (int) substr($t, 11, 2);
+            $dayHourly[$hr] = [
+                'hour'                     => $hr,
+                'time'                     => $t,
+                'temperature'              => $data['hourly']['temperature_2m'][$i] ?? null,
+                'weather_code'             => $data['hourly']['weather_code'][$i] ?? null,
+                'precipitation_probability'=> $data['hourly']['precipitation_probability'][$i] ?? null,
+                'is_day'                   => ($data['hourly']['is_day'][$i] ?? 1) === 1,
+                'is_past'                  => $hr < $nowHourInt,
+            ];
+        }
+        ksort($dayHourly);
+        $dayHourly = array_values($dayHourly);
+
         $daily = [];
         foreach (($data['daily']['time'] ?? []) as $i => $date) {
             $daily[] = [
@@ -110,6 +132,7 @@ class ForecastController extends Controller
             'dew_point'   => $data['current']['dew_point_2m'] ?? null,
             'hourly'      => $hourly,
             'daily'       => $daily,
+            'day_hourly'  => $dayHourly,
         ]);
     }
 }

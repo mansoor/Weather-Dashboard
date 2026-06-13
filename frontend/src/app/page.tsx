@@ -380,7 +380,7 @@ export default function Dashboard() {
                           moonset={forecast.moonset}
                           moon_phase={forecast.moon_phase}
                           timezone={forecast.timezone}
-                          hourly={forecast.hourly}
+                          dayHourly={forecast.day_hourly}
                           currentTemp={current?.temperature}
                         />
                         <DailyForecast daily={forecast.daily} />

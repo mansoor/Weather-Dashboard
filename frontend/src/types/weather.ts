@@ -136,6 +136,16 @@ export interface DailyPoint {
   uv_index_max: number | null
 }
 
+export interface DayHourPoint {
+  hour: number          // 0-23 local hour
+  time: string
+  temperature: number | null
+  weather_code: number | null
+  precipitation_probability: number | null
+  is_day: boolean
+  is_past: boolean      // true for hours earlier than the current local hour
+}
+
 export interface ForecastData {
   timezone: string | null
   sunrise: string | null
@@ -146,4 +156,5 @@ export interface ForecastData {
   dew_point: number | null
   hourly: HourlyPoint[]
   daily: DailyPoint[]
+  day_hourly: DayHourPoint[]
 }

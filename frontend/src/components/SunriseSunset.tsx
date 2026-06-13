@@ -1,87 +1,102 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { HourlyPoint } from '@/types/weather'
+import type { DayHourPoint } from '@/types/weather'
+import { weatherEmoji } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
-// ── SVG layout ────────────────────────────────────────────────
-const CX = 150, CY = 150
-const R_TICK  = 127   // outer tick marks
-const R_DO    = 119   // donut outer edge
-const R_DI    = 97    // donut inner edge
-const R_TP_O  = 91    // temp-band outer (just inside donut)
-const R_TP_I  = 66    // temp-band inner (center area starts here)
+// ── Geometry ──────────────────────────────────────────────────
+// Clock orientation: noon at top, midnight at bottom, 6 AM left, 6 PM right.
+// SVG y-axis points down, so with this mapping the sun arcs clockwise:
+//   6 AM (left) → noon (top) → 6 PM (right) → midnight (bottom).
+const C = 180
+const R_ORBIT    = 165   // sun / moon path — OUTSIDE the disc
+const R_LABEL    = 156   // hour labels
+const R_RING_OUT = 150   // thermal ring outer
+const R_RING_IN  = 122   // thermal ring inner
+const R_GLOBE    = 110   // earth globe
+const R_TICK     = 94    // analog clock tick ring
+const DEG = Math.PI / 180
 
-// ── Geometry helpers ──────────────────────────────────────────
-/** Midnight at top, clockwise. Returns angle in radians. */
-function h2a(hours: number): number {
-  return (hours / 24) * 2 * Math.PI - Math.PI / 2
+/** Hour-of-day (0–24, may be fractional) → SVG angle in radians. */
+function hourAngle(h: number): number {
+  return (h - 18) * (Math.PI / 12)
 }
-function pt(r: number, a: number): [number, number] {
-  return [CX + r * Math.cos(a), CY + r * Math.sin(a)]
+function P(r: number, h: number): [number, number] {
+  const a = hourAngle(h)
+  return [C + r * Math.cos(a), C + r * Math.sin(a)]
 }
-const f2 = (n: number) => n.toFixed(2)
+/** Standard analog-clock point: deg measured from 12 o'clock, clockwise. */
+function clockP(r: number, deg: number): [number, number] {
+  const a = (deg - 90) * DEG
+  return [C + r * Math.cos(a), C + r * Math.sin(a)]
+}
+const f = (n: number) => n.toFixed(2)
 
-/** Filled donut arc from a1 → a2 clockwise */
-function donutArc(ro: number, ri: number, a1: number, a2: number): string {
-  const [ox1, oy1] = pt(ro, a1), [ox2, oy2] = pt(ro, a2)
-  const [ix1, iy1] = pt(ri, a1), [ix2, iy2] = pt(ri, a2)
-  const span = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)
-  const la = span > Math.PI ? 1 : 0
+/** Annular sector (donut wedge) between two hour positions. */
+function sector(rOut: number, rIn: number, h1: number, h2: number): string {
+  const [ox1, oy1] = P(rOut, h1), [ox2, oy2] = P(rOut, h2)
+  const [ix1, iy1] = P(rIn, h2),  [ix2, iy2] = P(rIn, h1)
   return [
-    `M ${f2(ox1)} ${f2(oy1)}`,
-    `A ${ro} ${ro} 0 ${la} 1 ${f2(ox2)} ${f2(oy2)}`,
-    `L ${f2(ix2)} ${f2(iy2)}`,
-    `A ${ri} ${ri} 0 ${la} 0 ${f2(ix1)} ${f2(iy1)}`, 'Z',
+    `M ${f(ox1)} ${f(oy1)}`,
+    `A ${rOut} ${rOut} 0 0 1 ${f(ox2)} ${f(oy2)}`,
+    `L ${f(ix1)} ${f(iy1)}`,
+    `A ${rIn} ${rIn} 0 0 0 ${f(ix2)} ${f(iy2)}`, 'Z',
   ].join(' ')
 }
 
-// ── Time helpers ──────────────────────────────────────────────
-function parseHour(s: string | null | undefined): number | null {
-  if (!s) return null
-  const m = s.match(/T(\d{2}):(\d{2})/)
-  if (!m) return null
-  return parseInt(m[1]) + parseInt(m[2]) / 60
+// ── Temperature → colour (°C) ─────────────────────────────────
+const STOPS: [number, [number, number, number]][] = [
+  [-10, [30, 58, 138]], [0, [37, 99, 235]], [8, [6, 182, 212]],
+  [16, [34, 197, 94]],  [22, [234, 179, 8]], [28, [249, 115, 22]], [36, [220, 38, 38]],
+]
+function tempColor(t: number | null): string {
+  if (t == null) return 'rgb(100,116,139)'
+  if (t <= STOPS[0][0]) return `rgb(${STOPS[0][1].join(',')})`
+  if (t >= STOPS[STOPS.length - 1][0]) return `rgb(${STOPS[STOPS.length - 1][1].join(',')})`
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const [t0, c0] = STOPS[i], [t1, c1] = STOPS[i + 1]
+    if (t >= t0 && t <= t1) {
+      const k = (t - t0) / (t1 - t0)
+      const c = c0.map((v, j) => Math.round(v + (c1[j] - v) * k))
+      return `rgb(${c.join(',')})`
+    }
+  }
+  return 'rgb(100,116,139)'
 }
 
-function localHours(tz: string | null): number {
+// ── Time helpers ──────────────────────────────────────────────
+function tzParts(tz: string | null) {
   try {
-    const s = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz || undefined, hour: 'numeric', minute: '2-digit', hour12: false,
-    }).format(new Date())
-    const [hh, mm] = s.split(':').map(Number)
-    return (hh === 24 ? 0 : hh) + mm / 60
+    const p = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz || undefined, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).formatToParts(new Date())
+    const get = (t: string) => Number(p.find(x => x.type === t)?.value ?? 0)
+    let h = get('hour'); if (h === 24) h = 0
+    return { h, m: get('minute'), s: get('second') }
   } catch {
-    const n = new Date(); return n.getHours() + n.getMinutes() / 60
+    const n = new Date(); return { h: n.getHours(), m: n.getMinutes(), s: n.getSeconds() }
   }
 }
-
-function fmtTime(s: string | null | undefined): string {
+function parseHourFloat(s: string | null | undefined): number | null {
+  if (!s) return null
+  const m = s.match(/T(\d{2}):(\d{2})/)
+  return m ? parseInt(m[1]) + parseInt(m[2]) / 60 : null
+}
+function fmtClock(s: string | null | undefined): string {
   if (!s) return '—'
-  try {
-    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(s))
-  } catch { return '—' }
+  try { return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(s)) }
+  catch { return '—' }
 }
-
-function fmtNow(tz: string | null): string {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone: tz || undefined, hour: 'numeric', minute: '2-digit', hour12: true,
-    }).format(new Date())
-  } catch { return '' }
+function hourLabel(h: number): string {
+  const am = h < 12 || h === 24
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12} ${am ? 'AM' : 'PM'}`
 }
-
 function moonEmoji(phase: number | null | undefined): string {
   if (phase == null) return '🌙'
   const p = ((phase % 1) + 1) % 1
-  if (p < 0.0625 || p >= 0.9375) return '🌑'
-  if (p < 0.1875) return '🌒'
-  if (p < 0.3125) return '🌓'
-  if (p < 0.4375) return '🌔'
-  if (p < 0.5625) return '🌕'
-  if (p < 0.6875) return '🌖'
-  if (p < 0.8125) return '🌗'
-  return '🌘'
+  return ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][Math.floor(((p + 0.0625) % 1) * 8)]
 }
 
 // ── Component ─────────────────────────────────────────────────
@@ -92,237 +107,266 @@ interface Props {
   moonset?: string | null
   moon_phase?: number | null
   timezone: string | null
-  hourly: HourlyPoint[]
+  dayHourly: DayHourPoint[]
   currentTemp?: number | null
 }
 
 export default function SunriseSunset({
-  sunrise, sunset, moonrise, moonset, moon_phase, timezone, hourly, currentTemp,
+  sunrise, sunset, moonrise, moonset, moon_phase, timezone, dayHourly, currentTemp,
 }: Props) {
   const { fmtTemp } = useSettings()
-  const [nowH, setNowH] = useState(() => localHours(timezone))
-  const [timeStr, setTimeStr] = useState(() => fmtNow(timezone))
+  const [now, setNow] = useState(() => tzParts(timezone))
+  const [hover, setHover] = useState<number | null>(null)
 
+  // Live ticking — drives the second hand and the sun position.
   useEffect(() => {
-    const tick = () => { setNowH(localHours(timezone)); setTimeStr(fmtNow(timezone)) }
-    const id = setInterval(tick, 30_000)
+    const id = setInterval(() => setNow(tzParts(timezone)), 1000)
     return () => clearInterval(id)
   }, [timezone])
 
-  const srH = parseHour(sunrise)
-  const ssH = parseHour(sunset)
-  const mrH = parseHour(moonrise)
-  const msH = parseHour(moonset)
-
-  const nowA = h2a(nowH)
-  const srA  = srH != null ? h2a(srH) : null
-  const ssA  = ssH != null ? h2a(ssH) : null
-  const mrA  = mrH != null ? h2a(mrH) : null
-  const msA  = msH != null ? h2a(msH) : null
-
+  const nowH = now.h + now.m / 60 + now.s / 3600
+  const srH  = parseHourFloat(sunrise)
+  const ssH  = parseHourFloat(sunset)
+  const mrH  = parseHourFloat(moonrise)
+  const msH  = parseHourFloat(moonset)
   const isDay = srH != null && ssH != null && nowH >= srH && nowH <= ssH
 
-  // ── Temperature sparkline ──
-  const pts24 = hourly.slice(0, 24).filter(h => h.temperature != null)
-  const temps  = pts24.map(h => h.temperature!)
-  const minT   = temps.length ? Math.min(...temps) : 15
-  const maxT   = temps.length ? Math.max(...temps) : 30
-  const tRange = maxT - minT || 1
-  const tToR   = (t: number) => R_TP_I + ((t - minT) / tRange) * (R_TP_O - R_TP_I)
+  const byHour = new Map(dayHourly.map(d => [d.hour, d]))
+  const temps = dayHourly.map(d => d.temperature).filter((t): t is number => t != null)
+  const minT = temps.length ? Math.min(...temps) : 0
+  const maxT = temps.length ? Math.max(...temps) : 30
 
-  const tempPts = pts24.map(h => {
-    const hh = parseHour(h.time)
-    if (hh == null) return null
-    const a = h2a(hh)
-    const r = tToR(h.temperature!)
-    const [x, y] = pt(r, a)
-    return { x, y, a, temp: h.temperature!, precip: h.precipitation_probability ?? 0 }
-  }).filter(Boolean) as { x: number; y: number; a: number; temp: number; precip: number }[]
+  // ── Day / night arc samples on the orbit ──
+  const arcPath = (from: number, to: number) => {
+    const pts: string[] = []
+    for (let h = from; h <= to + 0.001; h += 0.5) {
+      const [x, y] = P(R_ORBIT, h)
+      pts.push(`${f(x)},${f(y)}`)
+    }
+    return pts.join(' ')
+  }
+  const dayArc   = srH != null && ssH != null ? arcPath(srH, ssH) : ''
+  const nightArc = srH != null && ssH != null ? arcPath(ssH, srH + 24) : ''
 
-  const polyline = tempPts.map(p => `${f2(p.x)},${f2(p.y)}`).join(' ')
-  const polygon  = tempPts.length > 2
-    ? [`${CX},${CY}`, ...tempPts.map(p => `${f2(p.x)},${f2(p.y)}`), `${CX},${CY}`].join(' ')
-    : ''
+  // ── Earth day/night terminator (night cap = half-disc opposite the sun) ──
+  const nightCap = (() => {
+    const pts: string[] = []
+    // Night centre direction is anti-sun. Sample the 180° away from the sun.
+    const sunDeg = hourAngle(nowH) / DEG
+    for (let a = sunDeg + 90; a <= sunDeg + 270; a += 6) {
+      const x = C + R_GLOBE * Math.cos(a * DEG)
+      const y = C + R_GLOBE * Math.sin(a * DEG)
+      pts.push(`${f(x)},${f(y)}`)
+    }
+    return pts.join(' ')
+  })()
 
-  // ── Tick marks ──
-  const ticks = Array.from({ length: 24 }, (_, i) => {
-    const a = h2a(i), main = i % 6 === 0
-    const [x1, y1] = pt(main ? R_TICK - 8 : R_TICK - 4, a)
-    const [x2, y2] = pt(R_TICK, a)
-    return { x1, y1, x2, y2, main, i }
-  })
+  // ── Active hour shown in the hub (hover overrides "now") ──
+  const activeHourInt = hover ?? now.h
+  const activeData = byHour.get(activeHourInt)
+  const activeTemp = hover == null
+    ? (currentTemp ?? activeData?.temperature ?? null)
+    : (activeData?.temperature ?? null)
+  const activeCode = activeData?.weather_code ?? null
+  const activeIsDay = activeData?.is_day ?? isDay
 
-  // ── Quadrant labels ──
-  const quadLabels = [
-    { h: 0, text: '12A' }, { h: 6, text: '6A' },
-    { h: 12, text: '12P' }, { h: 18, text: '6P' },
-  ].map(({ h, text }) => { const [x, y] = pt(R_TICK + 13, h2a(h)); return { x, y, text } })
+  const dateStr = (() => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone || undefined, weekday: 'short', month: 'short', day: 'numeric',
+      }).format(new Date())
+    } catch { return '' }
+  })()
+  const timeStr = `${String(now.h).padStart(2, '0')}:${String(now.m).padStart(2, '0')}`
 
-  // ── Marker positions ──
-  const [nowDotX, nowDotY] = pt(R_DO + 1, nowA)
-  const [nowLineX1, nowLineY1] = pt(R_TP_I - 2, nowA)
+  // ── Analog clock hands (standard 12-hour) ──
+  const secDeg  = now.s * 6
+  const minDeg  = now.m * 6 + now.s * 0.1
+  const hourDeg = (now.h % 12) * 30 + now.m * 0.5
+  const [hx, hy] = clockP(54, hourDeg)
+  const [mx, my] = clockP(80, minDeg)
+  const [sx, sy] = clockP(88, secDeg)
 
-  // Moving celestial body in the donut (midpoint of donut ring)
-  const rmid = (R_DO + R_DI) / 2
-  const [celestX, celestY] = pt(rmid, nowA)
+  // ── Sun / moon marker on the orbit at current time ──
+  const [bodyX, bodyY] = P(R_ORBIT, nowH)
+  const [srX, srY] = srH != null ? P(R_ORBIT, srH) : [0, 0]
+  const [ssX, ssY] = ssH != null ? P(R_ORBIT, ssH) : [0, 0]
+  const [mrX, mrY] = mrH != null ? P(R_ORBIT, mrH) : [0, 0]
+  const [msX, msY] = msH != null ? P(R_ORBIT, msH) : [0, 0]
 
-  // Fixed event markers just outside the outer ring
-  const [srX, srY] = srA != null ? pt(R_DO + 10, srA) : [0, 0]
-  const [ssX, ssY] = ssA != null ? pt(R_DO + 10, ssA) : [0, 0]
-  const [mrX, mrY] = mrA != null ? pt(R_DI - 8, mrA) : [0, 0]
-  const [msX, msY] = msA != null ? pt(R_DI - 8, msA) : [0, 0]
+  // Now / hover pointer hand to the ring
+  const [nowHandX, nowHandY] = P(R_RING_IN - 2, hover != null ? activeHourInt + 0.5 : nowH)
+
+  const cardinals = [
+    { h: 12, t: '12 PM' }, { h: 18, t: '6 PM' }, { h: 0, t: '12 AM' }, { h: 6, t: '6 AM' },
+  ]
+  const minors = [3, 9, 15, 21]
 
   return (
-    <div className="glass rounded-xl p-5">
-      <h2 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">24-Hour Sky</h2>
+    <div className="glass rounded-xl p-4">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-200">24-Hour Geo-Clock</h2>
+        <span className="text-xs text-slate-400">{isDay ? '☀️ Day' : '🌙 Night'}</span>
+      </div>
 
-      <svg viewBox="0 0 300 300" className="w-full max-w-xs mx-auto">
+      <svg viewBox="0 0 360 360" className="w-full max-w-sm mx-auto select-none"
+        onMouseLeave={() => setHover(null)}>
         <defs>
-          <linearGradient id="tempGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stopColor="#38bdf8" />
-            <stop offset="55%"  stopColor="#fb923c" />
-            <stop offset="100%" stopColor="#ef4444" />
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
+          <radialGradient id="ocean" cx="38%" cy="32%" r="75%">
+            <stop offset="0%"  stopColor="#3b82f6" />
+            <stop offset="60%" stopColor="#1d4ed8" />
+            <stop offset="100%" stopColor="#0c2461" />
+          </radialGradient>
+          <radialGradient id="dayGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"  stopColor="#fde68a" stopOpacity="0.0" />
+            <stop offset="80%" stopColor="#fbbf24" stopOpacity="0.0" />
+            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.35" />
+          </radialGradient>
+          <clipPath id="globeClip"><circle cx={C} cy={C} r={R_GLOBE} /></clipPath>
+          <filter id="soft"><feGaussianBlur stdDeviation="2.2" /></filter>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         </defs>
 
-        {/* Background disc */}
-        <circle cx={CX} cy={CY} r={R_DO} fill={isDay ? '#fffbeb' : '#0f172a'} />
+        {/* ── Orbit: faint full ring + day / night arcs ── */}
+        <circle cx={C} cy={C} r={R_ORBIT} fill="none" stroke="#cbd5e1"
+          strokeWidth="0.6" strokeDasharray="2 4" className="dark:stroke-slate-700" />
+        {nightArc && <polyline points={nightArc} fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" opacity="0.55" />}
+        {dayArc && <polyline points={dayArc} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />}
 
-        {/* Night arc (sunset → sunrise clockwise, wrapping midnight) */}
-        {srA != null && ssA != null && (
-          <path d={donutArc(R_DO, R_DI, ssA, srA)} fill="#1e3a5f" opacity="0.92" />
-        )}
+        {/* ── Thermal ring: one wedge per hour, coloured by temperature ── */}
+        {Array.from({ length: 24 }, (_, h) => {
+          const d = byHour.get(h)
+          const isActive = activeHourInt === h
+          return (
+            <path key={h} d={sector(R_RING_OUT, R_RING_IN, h - 0.5, h + 0.5)}
+              fill={tempColor(d?.temperature ?? null)}
+              opacity={d?.is_past ? 0.45 : 0.92}
+              stroke={isActive ? '#fff' : 'none'} strokeWidth={isActive ? 1.5 : 0}
+              style={{ transition: 'opacity .2s' }} />
+          )
+        })}
 
-        {/* Day arc (sunrise → sunset) */}
-        {srA != null && ssA != null && (
-          <path d={donutArc(R_DO, R_DI, srA, ssA)} fill="#fbbf24" opacity="0.72" />
-        )}
-
-        {/* Dawn blush at sunrise */}
-        {srA != null && (
-          <path d={donutArc(R_DO, R_DI, srA - 0.18, srA + 0.18)} fill="#f97316" opacity="0.55" />
-        )}
-        {/* Dusk blush at sunset */}
-        {ssA != null && (
-          <path d={donutArc(R_DO, R_DI, ssA - 0.18, ssA + 0.18)} fill="#f43f5e" opacity="0.45" />
-        )}
-
-        {/* Temperature polygon fill */}
-        {polygon && (
-          <polygon points={polygon}
-            fill={isDay ? 'rgba(251,146,60,0.10)' : 'rgba(56,189,248,0.10)'}
-            stroke="none" />
-        )}
-
-        {/* Temperature sparkline */}
-        {polyline && (
-          <polyline points={polyline} fill="none"
-            stroke="url(#tempGrad)" strokeWidth="1.8" strokeLinejoin="round" />
-        )}
-
-        {/* Temperature dots (blue tint when rainy) */}
-        {tempPts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={2.2}
-            fill={p.precip >= 60 ? '#38bdf8' : p.precip >= 35 ? '#7dd3fc' : '#f97316'}
-            opacity="0.85" />
-        ))}
-
-        {/* Ring borders */}
-        <circle cx={CX} cy={CY} r={R_DO} fill="none" stroke="#cbd5e1" strokeWidth="0.6"
-          className="dark:stroke-slate-700" />
-        <circle cx={CX} cy={CY} r={R_DI} fill="none" stroke="#cbd5e1" strokeWidth="0.6"
-          className="dark:stroke-slate-700" />
-
-        {/* Hour tick marks */}
-        {ticks.map(t => (
-          <line key={t.i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
-            stroke={t.main ? '#94a3b8' : '#e2e8f0'}
-            strokeWidth={t.main ? 1.5 : 0.8}
+        {/* ── Hour ticks ── */}
+        {Array.from({ length: 24 }, (_, h) => {
+          const [x1, y1] = P(R_RING_OUT, h - 0.5)
+          const [x2, y2] = P(R_RING_OUT + (h % 6 === 0 ? 6 : 3), h - 0.5)
+          return <line key={h} x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke={h % 6 === 0 ? '#94a3b8' : '#cbd5e1'} strokeWidth={h % 6 === 0 ? 1.4 : 0.7}
             className="dark:stroke-slate-600" />
+        })}
+
+        {/* ── Hour labels ── */}
+        {cardinals.map(c => { const [x, y] = P(R_LABEL, c.h); return (
+          <text key={c.t} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+            fontSize="9.5" fontWeight="700" fill="#64748b" className="dark:fill-slate-300">{c.t}</text>
+        )})}
+        {minors.map(h => { const [x, y] = P(R_LABEL, h); return (
+          <text key={h} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+            fontSize="7" fontWeight="500" fill="#94a3b8">{hourLabel(h).replace(' ', '')}</text>
+        )})}
+
+        {/* ── Earth globe ── */}
+        <circle cx={C} cy={C} r={R_GLOBE} fill="url(#ocean)" />
+        <g clipPath="url(#globeClip)">
+          {/* Abstract continents (high-level geo motif) */}
+          <g fill="#3f8f5b" opacity="0.92">
+            <path d="M120 120 q20 -22 48 -14 q22 6 18 28 q-4 20 -26 24 q-30 6 -42 -10 q-12 -16 2 -28 Z" />
+            <path d="M196 118 q26 -6 40 10 q12 16 -2 30 q-18 16 -40 8 q-16 -8 -12 -28 q2 -14 14 -20 Z" />
+            <path d="M150 190 q24 -8 40 8 q14 16 0 34 q-18 20 -42 10 q-18 -10 -12 -32 q4 -16 14 -20 Z" />
+            <path d="M214 196 q18 -4 26 10 q8 16 -6 26 q-16 10 -28 -2 q-10 -12 0 -26 q3 -6 8 -8 Z" />
+          </g>
+          {/* Atmosphere day-side warm glow */}
+          <circle cx={C} cy={C} r={R_GLOBE} fill="url(#dayGlow)" />
+          {/* Night terminator cap */}
+          <polygon points={nightCap} fill="#0b1220" opacity="0.72" />
+          <polygon points={nightCap} fill="#0b1220" opacity="0.4" filter="url(#soft)" />
+          {/* City-lights sparkle on the night side */}
+          {[[150,150],[170,138],[200,168],[158,200],[210,210],[186,150]].map(([x,y],i) => {
+            const a = hourAngle(nowH) / DEG
+            const dx = x - C, dy = y - C
+            const ang = Math.atan2(dy, dx) / DEG
+            const diff = Math.abs(((ang - a + 540) % 360) - 180)
+            return diff > 90 ? <circle key={i} cx={x} cy={y} r="0.9" fill="#fbbf24" opacity="0.8" /> : null
+          })}
+        </g>
+        <circle cx={C} cy={C} r={R_GLOBE} fill="none" stroke="#1e293b" strokeWidth="1" opacity="0.4" />
+
+        {/* ── Analog clock tick ring ── */}
+        {Array.from({ length: 12 }, (_, i) => {
+          const [x1, y1] = clockP(R_TICK, i * 30)
+          const [x2, y2] = clockP(R_TICK - 5, i * 30)
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#e2e8f0" strokeWidth="1" opacity="0.55" />
+        })}
+
+        {/* ── Hover scrub targets (transparent) ── */}
+        {Array.from({ length: 24 }, (_, h) => (
+          <path key={h} d={sector(R_RING_OUT, R_GLOBE - 4, h - 0.5, h + 0.5)}
+            fill="transparent" style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setHover(h)} />
         ))}
 
-        {/* Quadrant labels */}
-        {quadLabels.map(l => (
-          <text key={l.text} x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle"
-            fontSize="7.5" fontWeight="500" fill="#94a3b8">
-            {l.text}
+        {/* ── Now / hover pointer hand ── */}
+        <line x1={C} y1={C} x2={nowHandX} y2={nowHandY}
+          stroke={hover != null ? '#38bdf8' : '#f8fafc'} strokeWidth="1.4"
+          strokeLinecap="round" opacity="0.55" />
+
+        {/* ── Analog hands ── */}
+        <line x1={C} y1={C} x2={hx} y2={hy} stroke="#f8fafc" strokeWidth="3" strokeLinecap="round" opacity="0.92" />
+        <line x1={C} y1={C} x2={mx} y2={my} stroke="#f8fafc" strokeWidth="2" strokeLinecap="round" opacity="0.92" />
+        <line x1={C} y1={C} x2={sx} y2={sy} stroke="#f43f5e" strokeWidth="1" strokeLinecap="round" />
+        <circle cx={C} cy={C} r="3" fill="#f8fafc" />
+
+        {/* ── Sunrise / sunset / moon markers on the orbit ── */}
+        {srH != null && <text x={srX} y={srY} textAnchor="middle" dominantBaseline="middle" fontSize="12">🌅</text>}
+        {ssH != null && <text x={ssX} y={ssY} textAnchor="middle" dominantBaseline="middle" fontSize="12">🌇</text>}
+        {mrH != null && <text x={mrX} y={mrY} textAnchor="middle" dominantBaseline="middle" fontSize="9" opacity="0.6">{moonEmoji(moon_phase)}</text>}
+        {msH != null && <text x={msX} y={msY} textAnchor="middle" dominantBaseline="middle" fontSize="8" opacity="0.4">{moonEmoji(moon_phase)}</text>}
+
+        {/* ── Travelling sun / moon (current time) ── */}
+        {isDay
+          ? <text x={bodyX} y={bodyY} textAnchor="middle" dominantBaseline="middle" fontSize="20" filter="url(#glow)">☀️</text>
+          : <text x={bodyX} y={bodyY} textAnchor="middle" dominantBaseline="middle" fontSize="18">{moonEmoji(moon_phase)}</text>}
+
+        {/* ── Central hub plaque (date / time / temp) ── */}
+        <g pointerEvents="none">
+          <circle cx={C} cy={C} r="44" fill="#0f172a" opacity="0.82" />
+          <circle cx={C} cy={C} r="44" fill="none" stroke="#334155" strokeWidth="1" />
+          <text x={C} y={C - 26} textAnchor="middle" fontSize="8" fill="#94a3b8">{dateStr}</text>
+          <text x={C} y={C - 14} textAnchor="middle" fontSize="9" fontWeight="600"
+            fill={hover != null ? '#38bdf8' : '#e2e8f0'}>
+            {hover != null ? `${hover === now.h ? 'Now · ' : ''}${hourLabel(activeHourInt)}` : timeStr}
           </text>
-        ))}
-
-        {/* Moonrise / moonset markers inside the donut */}
-        {mrA != null && (
-          <text x={mrX} y={mrY} textAnchor="middle" dominantBaseline="middle" fontSize="10" opacity="0.85">
-            {moonEmoji(moon_phase)}
+          <text x={C} y={C + 12} textAnchor="middle" fontSize="26" fontWeight="800" fill="#f8fafc">
+            {activeTemp != null ? fmtTemp(activeTemp, 0) : '—'}
           </text>
-        )}
-        {msA != null && Math.abs((msH ?? 0) - (mrH ?? 0)) > 0.5 && (
-          <text x={msX} y={msY} textAnchor="middle" dominantBaseline="middle" fontSize="8" opacity="0.5">
-            {moonEmoji(moon_phase)}
+          <text x={C} y={C + 30} textAnchor="middle" fontSize="14">
+            {activeCode != null ? weatherEmoji(activeCode, activeIsDay) : ''}
           </text>
-        )}
-
-        {/* Sunrise / sunset icons just outside ring */}
-        {srA != null && (
-          <text x={srX} y={srY} textAnchor="middle" dominantBaseline="middle" fontSize="14">🌅</text>
-        )}
-        {ssA != null && (
-          <text x={ssX} y={ssY} textAnchor="middle" dominantBaseline="middle" fontSize="14">🌇</text>
-        )}
-
-        {/* Now line: inner temp area → outer ring */}
-        <line x1={nowLineX1} y1={nowLineY1} x2={nowDotX} y2={nowDotY}
-          stroke="#0ea5e9" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-        <circle cx={nowDotX} cy={nowDotY} r="3.5" fill="#0ea5e9" filter="url(#glow)" />
-        <circle cx={nowDotX} cy={nowDotY} r="5.5" fill="none" stroke="#0ea5e9" strokeWidth="1" opacity="0.35" />
-
-        {/* Moving celestial body on the donut ring */}
-        <text x={celestX} y={celestY} textAnchor="middle" dominantBaseline="middle" fontSize="15">
-          {isDay ? '☀️' : moonEmoji(moon_phase)}
-        </text>
-
-        {/* Center: time */}
-        <text x={CX} y={CY - 22} textAnchor="middle" fontSize="10" fontWeight="600"
-          fill={isDay ? '#92400e' : '#94a3b8'}>{timeStr}</text>
-
-        {/* Center: temperature */}
-        {currentTemp != null && (
-          <text x={CX} y={CY + 5} textAnchor="middle" fontSize="26" fontWeight="700"
-            fill={isDay ? '#b45309' : '#e2e8f0'}>
-            {fmtTemp(currentTemp, 0)}
-          </text>
-        )}
-
-        {/* Center: day/night label */}
-        <text x={CX} y={CY + 24} textAnchor="middle" fontSize="8" fill="#94a3b8">
-          {isDay ? 'Daytime' : 'Nighttime'}
-        </text>
-
-        {/* Temp range label */}
-        {temps.length > 0 && (
-          <>
-            <text x={CX - 28} y={CY + 38} textAnchor="middle" fontSize="7.5" fill="#64748b">
-              ↓{fmtTemp(minT, 0)}
+          {hover != null && (
+            <text x={C} y={C + 40} textAnchor="middle" fontSize="6.5" fill="#64748b">
+              {activeData?.is_past ? 'observed' : 'forecast'}
             </text>
-            <text x={CX + 28} y={CY + 38} textAnchor="middle" fontSize="7.5" fill="#64748b">
-              ↑{fmtTemp(maxT, 0)}
-            </text>
-          </>
-        )}
+          )}
+        </g>
       </svg>
 
-      {/* Legend row */}
+      {/* ── Legend ── */}
       <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
         <div className="flex flex-col items-start gap-0.5">
-          <span className="flex items-center gap-1">🌅 {fmtTime(sunrise)}</span>
-          {moonrise && <span className="flex items-center gap-1">{moonEmoji(moon_phase)} rises {fmtTime(moonrise)}</span>}
+          <span>🌅 {fmtClock(sunrise)}</span>
+          {moonrise && <span className="opacity-80">{moonEmoji(moon_phase)} {fmtClock(moonrise)}</span>}
+        </div>
+        <div className="flex items-center gap-1 self-center text-[10px]">
+          <span className="w-2 h-2 rounded-full" style={{ background: tempColor(minT) }} />
+          {fmtTemp(minT, 0)}
+          <span className="mx-1 opacity-50">→</span>
+          {fmtTemp(maxT, 0)}
+          <span className="w-2 h-2 rounded-full" style={{ background: tempColor(maxT) }} />
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          <span className="flex items-center gap-1">{fmtTime(sunset)} 🌇</span>
-          {moonset && <span className="flex items-center gap-1">sets {fmtTime(moonset)} {moonEmoji(moon_phase)}</span>}
+          <span>{fmtClock(sunset)} 🌇</span>
+          {moonset && <span className="opacity-80">{fmtClock(moonset)} {moonEmoji(moon_phase)}</span>}
         </div>
       </div>
     </div>
