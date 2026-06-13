@@ -36,7 +36,7 @@ class ForecastController extends Controller
                     'current'        => 'dew_point_2m',
                     'wind_speed_unit'=> 'kmh',
                     'timezone'       => 'auto',
-                    'forecast_days'  => 7,
+                    'forecast_days'  => 10,
                 ],
             ]);
 

@@ -34,16 +34,16 @@ export default function DailyForecast({ daily }: Props) {
 
   return (
     <div className="glass rounded-xl p-5">
-      <h2 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">7-Day Forecast</h2>
+      <h2 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">10-Day Forecast</h2>
 
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {daily.map((d, i) => {
           const precip = (d.precipitation_probability ?? 0) >= 10
           const displayMin = convertTemp(d.temp_min)
           const displayMax = convertTemp(d.temp_max)
 
           return (
-            <div key={d.date} className={`flex items-center gap-3 px-2 py-2.5 rounded-lg ${i === 0 ? 'bg-sky-50 dark:bg-sky-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'} transition-colors`}>
+            <div key={d.date} className={`flex items-center gap-3 px-2 py-1.5 rounded-lg ${i === 0 ? 'bg-sky-50 dark:bg-sky-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'} transition-colors`}>
               {/* Day */}
               <span className={`w-24 text-sm font-medium shrink-0 ${i === 0 ? 'text-sky-700 dark:text-sky-400' : 'text-slate-700 dark:text-slate-300'}`}>
                 {dayLabel(d.date, i)}
@@ -51,7 +51,7 @@ export default function DailyForecast({ daily }: Props) {
 
               {/* Emoji + precipitation */}
               <div className="flex items-center gap-1 w-16 shrink-0">
-                <span className="text-xl">{weatherEmoji(d.weather_code, true)}</span>
+                <span className="text-lg">{weatherEmoji(d.weather_code, true)}</span>
                 {precip && (
                   <span className="text-xs text-sky-500 font-medium">{d.precipitation_probability}%</span>
                 )}
