@@ -101,8 +101,8 @@ export default function FavoritesBar({ currentLocation, onSelect, guestFavVersio
               key={i}
               className={`flex items-center gap-1 rounded-lg border text-xs transition-colors shrink-0 ${
                 isActive
-                  ? 'bg-sky-900/40 border-sky-600/50 text-sky-300'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600'
+                  ? 'bg-sky-100 border-sky-400 text-sky-700 dark:bg-sky-900/40 dark:border-sky-600/50 dark:text-sky-300'
+                  : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600'
               }`}
             >
               <button onClick={() => onSelect(fav)} className="flex items-center gap-1.5 px-2.5 py-1.5">

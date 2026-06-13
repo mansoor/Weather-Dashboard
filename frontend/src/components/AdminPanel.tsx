@@ -108,7 +108,7 @@ export default function AdminPanel() {
       <div className="glass rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 text-xs">
+            <tr className="border-b border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 text-xs bg-slate-50 dark:bg-transparent">
               <th className="text-left p-4">User</th>
               <th className="text-left p-4 hidden md:table-cell">Joined</th>
               <th className="text-center p-4">Verified</th>
@@ -121,7 +121,7 @@ export default function AdminPanel() {
               <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading…</td></tr>
             ) : users.map((u, i) => (
               <>
-                <tr key={u.id} className={`border-b border-slate-100 dark:border-slate-800/50 ${i % 2 === 0 ? 'bg-slate-50/50 dark:bg-slate-800/20' : ''}`}>
+                <tr key={u.id} className={`border-b border-slate-200 dark:border-slate-800/50 ${i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/20' : 'bg-white dark:bg-transparent'}`}>
                   <td className="p-4">
                     <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       {u.name}
@@ -129,7 +129,7 @@ export default function AdminPanel() {
                     </div>
                     <div className="text-xs text-slate-500">{u.email}</div>
                   </td>
-                  <td className="p-4 text-xs text-slate-500 hidden md:table-cell">
+                  <td className="p-4 text-xs text-slate-600 dark:text-slate-500 hidden md:table-cell">
                     {new Date(u.created_at).toLocaleDateString()}
                   </td>
                   <td className="p-4 text-center">

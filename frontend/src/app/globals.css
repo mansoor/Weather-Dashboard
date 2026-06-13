@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-slate-200 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
   }
 }
 
@@ -16,10 +16,11 @@
     display: none;
   }
 
-
+  /* Light: solid white card with a clear border so it pops off the slate-200 page bg.
+     Dark: translucent as before. */
   .glass {
-    @apply bg-white/85 backdrop-blur-sm border border-slate-200/80
-           dark:bg-slate-800/60 dark:border-slate-700/50;
+    @apply bg-white border border-slate-300 shadow-sm
+           dark:bg-slate-800/60 dark:border-slate-700/50 dark:shadow-none;
   }
 
   /* Reusable input style that adapts to theme */

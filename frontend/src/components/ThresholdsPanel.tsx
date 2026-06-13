@@ -202,7 +202,7 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
       <div className="glass rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 text-xs">
+            <tr className="border-b border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 text-xs bg-slate-50 dark:bg-transparent">
               <th className="text-left p-4">Metric</th>
               <th className="text-left p-4">Condition</th>
               <th className="text-left p-4">Threshold</th>
@@ -214,10 +214,10 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
           </thead>
           <tbody>
             {thresholds.map((t, i) => (
-              <tr key={t.id} className={`border-b border-slate-100 dark:border-slate-800/50 last:border-0 ${i % 2 === 0 ? 'bg-slate-50/50 dark:bg-slate-800/20' : ''}`}>
+              <tr key={t.id} className={`border-b border-slate-200 dark:border-slate-800/50 last:border-0 ${i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/20' : 'bg-white dark:bg-transparent'}`}>
                 <td className="p-4">
                   <span className="font-medium text-slate-800 dark:text-slate-200">{t.label}</span>
-                  <div className="text-xs text-slate-500">{t.metric}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-500">{t.metric}</div>
                 </td>
                 <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{t.operator}</td>
                 <td className="p-4">
