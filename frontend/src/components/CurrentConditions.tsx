@@ -1,18 +1,47 @@
 'use client'
 
-import { format, parseISO } from 'date-fns'
+import { useEffect, useState } from 'react'
 import { Wind, Droplets, Eye, ArrowUp, ArrowDown } from 'lucide-react'
 import type { WeatherReading, WeatherStats } from '@/types/weather'
 import { weatherEmoji, windDirection, fmt } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
+function useLocalClock(timezone: string | null) {
+  const [time, setTime] = useState('')
+  const [date, setDate] = useState('')
+
+  useEffect(() => {
+    const tz = timezone || undefined
+    const tick = () => {
+      const now = new Date()
+      setTime(new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      }).format(now))
+      setDate(new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      }).format(now))
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [timezone])
+
+  return { time, date }
+}
+
 export default function CurrentConditions({ reading, stats }: { reading: WeatherReading; stats: WeatherStats | null }) {
   const { fmtTemp } = useSettings()
   const emoji = weatherEmoji(reading.weather_code, reading.is_day)
+  const { time, date } = useLocalClock(reading.timezone)
+
+  const tzLabel = reading.timezone
+    ? reading.timezone.replace('_', ' ')
+    : null
 
   return (
     <div className="glass rounded-xl p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        {/* Temp + description */}
         <div className="flex items-center gap-5">
           <span className="text-7xl">{emoji}</span>
           <div>
@@ -25,6 +54,7 @@ export default function CurrentConditions({ reading, stats }: { reading: Weather
           </div>
         </div>
 
+        {/* Stat pills */}
         <div className="flex flex-wrap gap-4">
           <StatPill icon={<Droplets size={14} />} label="Humidity" value={`${fmt(reading.humidity, 0)}%`} />
           <StatPill icon={<Wind size={14} />} label="Wind" value={`${fmt(reading.wind_speed, 1)} km/h ${windDirection(reading.wind_direction)}`} />
@@ -37,10 +67,19 @@ export default function CurrentConditions({ reading, stats }: { reading: Weather
           )}
         </div>
 
-        <div className="text-right text-slate-500 text-sm shrink-0">
-          <div className="text-slate-700 dark:text-slate-300 text-base">{format(parseISO(reading.recorded_at), 'HH:mm')}</div>
-          <div>{format(parseISO(reading.recorded_at), 'EEE, d MMM yyyy')}</div>
-          <div className="mt-1">{reading.is_day ? '☀️ Daytime' : '🌙 Night'}</div>
+        {/* Local date & time */}
+        <div className="shrink-0 text-right">
+          <div className="text-3xl font-semibold tabular-nums text-slate-800 dark:text-slate-100 tracking-tight">
+            {time || '––:––:––'}
+          </div>
+          <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+            {date || '…'}
+          </div>
+          <div className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">
+            {reading.is_day ? '☀️' : '🌙'}
+            <span>{reading.is_day ? 'Daytime' : 'Night'}</span>
+            {tzLabel && <span className="ml-1 opacity-60">· {tzLabel}</span>}
+          </div>
         </div>
       </div>
     </div>

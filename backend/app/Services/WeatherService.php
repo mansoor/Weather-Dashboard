@@ -96,6 +96,7 @@ class WeatherService
     {
         return [
             'location_name'            => $name,
+            'timezone'                 => $weather['_timezone'] ?? null,
             'latitude'                 => $lat,
             'longitude'                => $lon,
             'temperature'              => $weather['temperature'] ?? null,
@@ -143,7 +144,10 @@ class WeatherService
         $data     = json_decode($response->getBody()->getContents(), true);
         $current  = $data['current'] ?? [];
 
-        return array_merge($current, ['temperature' => $current['temperature_2m'] ?? null]);
+        return array_merge($current, [
+            'temperature' => $current['temperature_2m'] ?? null,
+            '_timezone'   => $data['timezone'] ?? null,
+        ]);
     }
 
     private function fetchAirQuality(float $lat, float $lon): array

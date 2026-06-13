@@ -26,6 +26,7 @@ export interface WeatherReading {
   no2: number | null
   o3: number | null
   recorded_at: string
+  timezone: string | null
 }
 
 export interface WeatherAlert {

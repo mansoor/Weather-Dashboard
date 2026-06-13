@@ -33,6 +33,7 @@ class WeatherReading extends Model
         'no2',
         'o3',
         'recorded_at',
+        'timezone',
     ];
 
     protected $casts = [

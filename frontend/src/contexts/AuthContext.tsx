@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     api.auth.logout().catch(() => {})
     localStorage.removeItem('auth_token')
-    setState(prev => ({ ...prev, user: null, token: null, locations: [], settings: { temp_unit: 'C' } }))
+    setState(prev => ({ ...prev, user: null, token: null, locations: [], settings: { temp_unit: 'C', theme: 'dark', notification_urls: null } }))
   }, [])
 
   const refreshLocations = useCallback(async () => {

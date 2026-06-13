@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, Bell, Settings, MapPin, Clock, User, LogOut } from 'lucide-react'
-import { format } from 'date-fns'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { RefreshCw, Bell, Settings, MapPin, User, LogOut } from 'lucide-react'
 import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -22,8 +21,27 @@ import AccountSettings from '@/components/AccountSettings'
 
 type ActiveLocation = { name: string; latitude: number; longitude: number; isDefault?: boolean }
 
+function useHeaderClock() {
+  const [display, setDisplay] = useState({ time: '', date: '' })
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      setDisplay({
+        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        date: now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+      })
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return display
+}
+
 export default function Dashboard() {
   const { user, locations, loading: authLoading, logout } = useAuth()
+  const clock = useHeaderClock()
+  const initialLoadDone = useRef(false)
 
   const [current, setCurrent] = useState<WeatherReading | null>(null)
   const [alerts, setAlerts] = useState<WeatherAlert[]>([])
@@ -32,7 +50,6 @@ export default function Dashboard() {
   const [fetching, setFetching] = useState(false)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'settings'>('dashboard')
   const [historyHours, setHistoryHours] = useState(24)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showAuth, setShowAuth] = useState(false)
   const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null)
@@ -48,7 +65,6 @@ export default function Dashboard() {
       setCurrent(cur)
       setAlerts(al)
       setStats(st)
-      setLastUpdated(new Date())
     } catch {
       setError('Could not reach the backend. Is it running?')
     } finally {
@@ -67,7 +83,6 @@ export default function Dashboard() {
       setCurrent(live)
       setAlerts(al)
       setStats(st)
-      setLastUpdated(new Date())
     } catch {
       setError('Could not fetch weather for this location.')
     } finally {
@@ -80,9 +95,34 @@ export default function Dashboard() {
     else await loadDefaultData()
   }, [activeLocation, loadDefaultData, loadLiveData])
 
+  // Initial load: try geolocation first, fall back to configured default
+  useEffect(() => {
+    if (authLoading || initialLoadDone.current) return
+    initialLoadDone.current = true
+
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc: ActiveLocation = {
+            name: 'My Location',
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          }
+          setActiveLocation(loc)
+          setLoading(true)
+          loadLiveData(loc)
+        },
+        () => loadDefaultData(), // permission denied or error
+        { timeout: 5000, maximumAge: 300_000 }
+      )
+    } else {
+      loadDefaultData()
+    }
+  }, [authLoading, loadLiveData, loadDefaultData])
+
+  // Auto-refresh every 60 s (runs regardless of how initial load happened)
   useEffect(() => {
     if (authLoading) return
-    loadData()
     const interval = setInterval(loadData, 60_000)
     return () => clearInterval(interval)
   }, [loadData, authLoading])
@@ -188,12 +228,15 @@ export default function Dashboard() {
             <UnitToggle />
             <ThemeToggle />
 
-            {lastUpdated && (
-              <span className="text-slate-400 dark:text-slate-500 text-xs hidden md:flex items-center gap-1">
-                <Clock size={11} />
-                {format(lastUpdated, 'HH:mm:ss')}
+            {/* Prominent date & time widget */}
+            <div className="hidden md:flex flex-col items-end leading-none px-1">
+              <span className="text-base font-semibold tabular-nums text-slate-700 dark:text-slate-200 tracking-tight">
+                {clock.time}
               </span>
-            )}
+              <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {clock.date}
+              </span>
+            </div>
 
             {!activeLocation && (
               <button
@@ -207,8 +250,11 @@ export default function Dashboard() {
             )}
 
             {user ? (
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 dark:text-slate-400 text-xs hidden lg:block">{user.name}</span>
+              <div className="flex items-center gap-2 pl-1 border-l border-slate-200 dark:border-slate-700">
+                <div className="hidden lg:flex flex-col items-end leading-none">
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{user.name}</span>
+                  <span className="text-xs text-slate-400 mt-0.5">{user.email}</span>
+                </div>
                 <button onClick={logout} title="Sign out" className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                   <LogOut size={14} />
                 </button>
