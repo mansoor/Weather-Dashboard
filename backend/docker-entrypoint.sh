@@ -3,6 +3,12 @@ set -e
 
 ENV_FILE="/var/www/html/.env"
 
+# The bind mount (./backend:/var/www/html) shadows the .env baked into the image,
+# so it may not exist at runtime. Ensure it exists before anything reads it.
+if [ ! -f "$ENV_FILE" ]; then
+    echo "APP_KEY=" > "$ENV_FILE"
+fi
+
 # The image ships with a minimal .env containing only APP_KEY= (see Dockerfile).
 # All other config (DB, Redis, weather, mail) is injected by Docker as real process
 # environment variables, which Laravel's env() reads directly — no .env entry needed.
