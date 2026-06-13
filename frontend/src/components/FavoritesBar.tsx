@@ -1,68 +1,59 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Star, StarOff, Trash2, MapPin } from 'lucide-react'
-import type { GeoResult, UserLocation } from '@/types/weather'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, MapPin, Star, Trash2 } from 'lucide-react'
+import type { UserLocation } from '@/types/weather'
 import { useAuth } from '@/contexts/AuthContext'
 
 const GUEST_KEY = 'weather_guest_favorites'
 
-interface GuestFav { name: string; country: string | null; latitude: number; longitude: number }
+export interface GuestFav { name: string; country: string | null; latitude: number; longitude: number }
 
-function loadGuestFavs(): GuestFav[] {
+export function loadGuestFavs(): GuestFav[] {
   try { return JSON.parse(localStorage.getItem(GUEST_KEY) || '[]') } catch { return [] }
 }
-function saveGuestFavs(favs: GuestFav[]) {
+export function saveGuestFavs(favs: GuestFav[]) {
   localStorage.setItem(GUEST_KEY, JSON.stringify(favs))
 }
 
 interface Props {
   currentLocation: { name: string; latitude: number; longitude: number } | null
   onSelect: (loc: { name: string; latitude: number; longitude: number }) => void
+  /** Increment to force FavoritesBar to re-read guest favs from localStorage */
+  guestFavVersion?: number
 }
 
-export default function FavoritesBar({ currentLocation, onSelect }: Props) {
-  const { user, locations, addLocation, removeLocation, setDefaultLocation } = useAuth()
+export default function FavoritesBar({ currentLocation, onSelect, guestFavVersion = 0 }: Props) {
+  const { user, locations, removeLocation, setDefaultLocation } = useAuth()
   const [guestFavs, setGuestFavs] = useState<GuestFav[]>([])
   const [mounted, setMounted] = useState(false)
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(false)
+
   useEffect(() => { setGuestFavs(loadGuestFavs()); setMounted(true) }, [])
+  useEffect(() => { if (mounted) setGuestFavs(loadGuestFavs()) }, [guestFavVersion, mounted])
 
-  const isCurrentFavorited = () => {
-    if (!currentLocation) return false
-    if (user) {
-      return locations.some(l =>
-        Math.abs(l.latitude - currentLocation.latitude) < 0.01 &&
-        Math.abs(l.longitude - currentLocation.longitude) < 0.01
-      )
-    }
-    return guestFavs.some(f =>
-      Math.abs(f.latitude - currentLocation.latitude) < 0.01 &&
-      Math.abs(f.longitude - currentLocation.longitude) < 0.01
-    )
+  const checkScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 2)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
   }
 
-  const toggleCurrentFavorite = async () => {
-    if (!currentLocation) return
-    if (user) {
-      const existing = locations.find(l =>
-        Math.abs(l.latitude - currentLocation.latitude) < 0.01 &&
-        Math.abs(l.longitude - currentLocation.longitude) < 0.01
-      )
-      if (existing) await removeLocation(existing.id)
-      else await addLocation({ name: currentLocation.name, latitude: currentLocation.latitude, longitude: currentLocation.longitude })
-    } else {
-      const favs = loadGuestFavs()
-      const idx = favs.findIndex(f =>
-        Math.abs(f.latitude - currentLocation.latitude) < 0.01 &&
-        Math.abs(f.longitude - currentLocation.longitude) < 0.01
-      )
-      if (idx >= 0) favs.splice(idx, 1)
-      else favs.push({ ...currentLocation, country: null })
-      saveGuestFavs(favs)
-      setGuestFavs([...favs])
-    }
-  }
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    checkScroll()
+    el.addEventListener('scroll', checkScroll, { passive: true })
+    const ro = new ResizeObserver(checkScroll)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', checkScroll); ro.disconnect() }
+  })
+
+  const scroll = (dir: 'left' | 'right') =>
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -180 : 180, behavior: 'smooth' })
 
   const removeFav = async (fav: GuestFav | UserLocation) => {
     if (user && 'id' in fav) {
@@ -80,64 +71,70 @@ export default function FavoritesBar({ currentLocation, onSelect }: Props) {
   if (!mounted) return null
 
   const favList: Array<GuestFav | UserLocation> = user ? locations : guestFavs
-  const favorited = isCurrentFavorited()
 
-  if (favList.length === 0 && !currentLocation) return null
+  if (favList.length === 0) return null
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {currentLocation && (
+    <div className="relative flex items-center min-w-0">
+      {/* Left scroll arrow */}
+      {canLeft && (
         <button
-          onClick={toggleCurrentFavorite}
-          title={favorited ? 'Remove from favorites' : 'Add to favorites'}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors border ${
-            favorited
-              ? 'bg-yellow-900/30 border-yellow-600/50 text-yellow-400 hover:bg-yellow-900/50'
-              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-yellow-400 hover:border-yellow-600/50'
-          }`}
+          onClick={() => scroll('left')}
+          className="absolute left-0 z-10 flex items-center justify-center w-6 h-full bg-gradient-to-r from-white dark:from-slate-900 to-transparent pr-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
         >
-          <Star size={12} fill={favorited ? 'currentColor' : 'none'} />
-          {favorited ? 'Saved' : 'Save location'}
+          <ChevronLeft size={16} />
         </button>
       )}
 
-      {favList.map((fav, i) => {
-        const isActive = currentLocation &&
-          Math.abs(fav.latitude - currentLocation.latitude) < 0.01 &&
-          Math.abs(fav.longitude - currentLocation.longitude) < 0.01
+      {/* Scrollable chip strip */}
+      <div
+        ref={scrollRef}
+        className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide px-1"
+      >
+        {favList.map((fav, i) => {
+          const isActive = currentLocation &&
+            Math.abs(fav.latitude - currentLocation.latitude) < 0.01 &&
+            Math.abs(fav.longitude - currentLocation.longitude) < 0.01
 
-        return (
-          <div key={i} className={`flex items-center gap-1 rounded-lg border text-xs transition-colors ${
-            isActive
-              ? 'bg-sky-900/40 border-sky-600/50 text-sky-300'
-              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
-          }`}>
-            <button
-              onClick={() => onSelect(fav)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5"
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-1 rounded-lg border text-xs transition-colors shrink-0 ${
+                isActive
+                  ? 'bg-sky-900/40 border-sky-600/50 text-sky-300'
+                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600'
+              }`}
             >
-              <MapPin size={11} />
-              {fav.name}
-            </button>
-            {'is_default' in fav && user && (
-              <button
-                onClick={() => setDefaultLocation((fav as UserLocation).id)}
-                title="Set as default"
-                className={`p-1.5 hover:text-yellow-400 transition-colors ${(fav as UserLocation).is_default ? 'text-yellow-400' : ''}`}
-              >
-                <Star size={10} fill={(fav as UserLocation).is_default ? 'currentColor' : 'none'} />
+              <button onClick={() => onSelect(fav)} className="flex items-center gap-1.5 px-2.5 py-1.5">
+                <MapPin size={11} />
+                {fav.name}
               </button>
-            )}
-            <button
-              onClick={() => removeFav(fav)}
-              className="pr-2 p-1.5 hover:text-red-400 transition-colors"
-              title="Remove"
-            >
-              <Trash2 size={10} />
-            </button>
-          </div>
-        )
-      })}
+              {'is_default' in fav && user && (
+                <button
+                  onClick={() => setDefaultLocation((fav as UserLocation).id)}
+                  title="Set as default"
+                  className={`p-1.5 hover:text-yellow-400 transition-colors ${(fav as UserLocation).is_default ? 'text-yellow-400' : ''}`}
+                >
+                  <Star size={10} fill={(fav as UserLocation).is_default ? 'currentColor' : 'none'} />
+                </button>
+              )}
+              <button onClick={() => removeFav(fav)} className="pr-2 p-1.5 hover:text-red-400 transition-colors" title="Remove">
+                <Trash2 size={10} />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Right scroll arrow */}
+      {canRight && (
+        <button
+          onClick={() => scroll('right')}
+          className="absolute right-0 z-10 flex items-center justify-center w-6 h-full bg-gradient-to-l from-white dark:from-slate-900 to-transparent pl-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+        >
+          <ChevronRight size={16} />
+        </button>
+      )}
     </div>
   )
 }

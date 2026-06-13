@@ -9,6 +9,14 @@
 }
 
 @layer utilities {
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+
   .glass {
     @apply bg-white/85 backdrop-blur-sm border border-slate-200/80
            dark:bg-slate-800/60 dark:border-slate-700/50;

@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { RefreshCw, Bell, Settings, MapPin, User, LogOut } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star } from 'lucide-react'
 import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { loadGuestFavs, saveGuestFavs } from '@/components/FavoritesBar'
 import CurrentConditions from '@/components/CurrentConditions'
 import MetricCards from '@/components/MetricCards'
 import AirQuality from '@/components/AirQuality'
@@ -39,7 +40,7 @@ function useHeaderClock() {
 }
 
 export default function Dashboard() {
-  const { user, locations, loading: authLoading, logout } = useAuth()
+  const { user, locations, loading: authLoading, logout, addLocation, removeLocation } = useAuth()
   const clock = useHeaderClock()
   const initialLoadDone = useRef(false)
 
@@ -53,6 +54,10 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [showAuth, setShowAuth] = useState(false)
   const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null)
+  const [guestFavs, setGuestFavs] = useState<ReturnType<typeof loadGuestFavs>>([])
+  const [guestFavVersion, setGuestFavVersion] = useState(0)
+
+  useEffect(() => { setGuestFavs(loadGuestFavs()) }, [guestFavVersion])
 
   const loadDefaultData = useCallback(async () => {
     try {
@@ -174,6 +179,28 @@ export default function Dashboard() {
     ? { name: current.location_name, latitude: current.latitude, longitude: current.longitude }
     : null
 
+  const isSaved = useMemo(() => {
+    if (!displayLocation) return false
+    if (user) return locations.some(l => Math.abs(l.latitude - displayLocation.latitude) < 0.01 && Math.abs(l.longitude - displayLocation.longitude) < 0.01)
+    return guestFavs.some(f => Math.abs(f.latitude - displayLocation.latitude) < 0.01 && Math.abs(f.longitude - displayLocation.longitude) < 0.01)
+  }, [displayLocation, user, locations, guestFavs])
+
+  const toggleSave = async () => {
+    if (!displayLocation) return
+    if (user) {
+      const existing = locations.find(l => Math.abs(l.latitude - displayLocation.latitude) < 0.01 && Math.abs(l.longitude - displayLocation.longitude) < 0.01)
+      if (existing) await removeLocation(existing.id)
+      else await addLocation({ name: displayLocation.name, latitude: displayLocation.latitude, longitude: displayLocation.longitude })
+    } else {
+      const favs = loadGuestFavs()
+      const idx = favs.findIndex(f => Math.abs(f.latitude - displayLocation.latitude) < 0.01 && Math.abs(f.longitude - displayLocation.longitude) < 0.01)
+      if (idx >= 0) favs.splice(idx, 1)
+      else favs.push({ ...displayLocation, country: null })
+      saveGuestFavs(favs)
+      setGuestFavVersion(v => v + 1)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
@@ -182,32 +209,50 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
 
-        {/* Row 1: logo | search | clock + user */}
+        {/* ── Row 1: logo + location + save | search | clock + theme + user ── */}
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+
+          {/* Left: logo, location name, save/reset */}
+          <div className="flex items-center gap-2 min-w-0 shrink-0">
             <span className="text-2xl shrink-0">🌤️</span>
-            <span className="font-semibold text-slate-800 dark:text-slate-100 shrink-0 hidden sm:block">Weather</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-100 hidden sm:block shrink-0">Weather</span>
             {displayLocation && (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <>
+                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 hidden sm:block" />
                 <MapPin size={12} className="text-slate-500 dark:text-slate-400 shrink-0" />
-                <span className="text-slate-600 dark:text-slate-300 text-sm truncate">{displayLocation.name}</span>
+                <span className="text-slate-600 dark:text-slate-300 text-sm truncate max-w-[140px]">
+                  {displayLocation.name}
+                </span>
+                {/* Save / unsave current location */}
+                <button
+                  onClick={toggleSave}
+                  title={isSaved ? 'Remove from saved' : 'Save location'}
+                  className={`p-1 rounded transition-colors shrink-0 ${
+                    isSaved
+                      ? 'text-yellow-400 hover:text-yellow-500'
+                      : 'text-slate-400 hover:text-yellow-400'
+                  }`}
+                >
+                  <Star size={14} fill={isSaved ? 'currentColor' : 'none'} />
+                </button>
                 {activeLocation && (
-                  <button onClick={handleReturnToDefault} className="text-xs text-sky-500 hover:underline shrink-0 ml-1">
-                    (reset)
+                  <button onClick={handleReturnToDefault} className="text-xs text-sky-500 hover:underline shrink-0">
+                    reset
                   </button>
                 )}
-              </div>
+              </>
             )}
           </div>
 
-          <div className="flex-1 flex justify-center px-2">
+          {/* Center: location search */}
+          <div className="flex-1 flex justify-center px-2 min-w-0">
             <LocationSearch onSelect={handleLocationSelect} />
           </div>
 
+          {/* Right: clock + theme + user */}
           <div className="flex items-center gap-2 shrink-0">
             <ThemeToggle />
 
-            {/* Prominent date & time widget */}
             <div className="hidden md:flex flex-col items-end leading-none px-1">
               <span className="text-base font-semibold tabular-nums text-slate-700 dark:text-slate-200 tracking-tight">
                 {clock.time}
@@ -218,7 +263,7 @@ export default function Dashboard() {
             </div>
 
             {user ? (
-              <div className="flex items-center gap-2 pl-1 border-l border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
                 <div className="hidden lg:flex flex-col items-end leading-none">
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{user.name}</span>
                   <span className="text-xs text-slate-400 mt-0.5">{user.email}</span>
@@ -236,20 +281,26 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Row 2: favourites | nav tabs (center) | unit toggle + fetch (right) */}
-        <div className="max-w-7xl mx-auto px-4 pb-2 flex items-center gap-3">
-          {/* Favourites takes remaining left space */}
-          <div className="flex-1 min-w-0">
-            <FavoritesBar currentLocation={displayLocation} onSelect={handleLocationSelect} />
-          </div>
+        {/* ── Row 2: full-width scrollable saved locations ── */}
+        <div className="max-w-7xl mx-auto px-4 py-1 border-t border-slate-100 dark:border-slate-800/60 min-h-[2rem] flex items-center">
+          <FavoritesBar
+            currentLocation={displayLocation}
+            onSelect={handleLocationSelect}
+            guestFavVersion={guestFavVersion}
+          />
+        </div>
 
-          {/* Nav tabs — centred in available space */}
-          <nav className="flex items-center gap-1 shrink-0">
+        {/* ── Row 3: nav tabs (center) | unit toggle + fetch (right) ── */}
+        <div className="max-w-7xl mx-auto px-4 pb-2 flex items-center">
+          {/* Left spacer = same width as right controls to keep tabs centered */}
+          <div className="flex-1" />
+
+          <nav className="flex items-center gap-1">
             {(['dashboard', 'alerts', 'settings'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-2.5 py-1.5 rounded-md text-sm capitalize transition-colors relative ${
+                className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors relative ${
                   activeTab === tab
                     ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-white'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800'
@@ -260,14 +311,14 @@ export default function Dashboard() {
                     {unacknowledgedCount > 9 ? '9+' : unacknowledgedCount}
                   </span>
                 )}
-                {tab === 'alerts' ? <Bell size={14} className="inline mr-1" /> : tab === 'settings' ? <Settings size={14} className="inline mr-1" /> : null}
-                <span className="hidden sm:inline">{tab}</span>
+                {tab === 'alerts' && <Bell size={13} className="inline mr-1" />}
+                {tab === 'settings' && <Settings size={13} className="inline mr-1" />}
+                {tab}
               </button>
             ))}
           </nav>
 
-          {/* Unit toggle + fetch — right-aligned */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex-1 flex items-center justify-end gap-2">
             <UnitToggle />
             {!activeLocation && (
               <button
