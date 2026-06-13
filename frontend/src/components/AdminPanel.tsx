@@ -125,7 +125,7 @@ export default function AdminPanel() {
                   <td className="p-4">
                     <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       {u.name}
-                      {u.is_admin && <Shield size={11} className="text-amber-500" title="Admin" />}
+                      {u.is_admin && <span title="Admin"><Shield size={11} className="text-amber-500" /></span>}
                     </div>
                     <div className="text-xs text-slate-500">{u.email}</div>
                   </td>
