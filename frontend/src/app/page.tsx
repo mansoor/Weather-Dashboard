@@ -181,6 +181,8 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="border-b border-slate-200/80 bg-white/80 dark:border-slate-800/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
+
+        {/* Row 1: logo | search | clock + user */}
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-2xl shrink-0">🌤️</span>
@@ -202,6 +204,46 @@ export default function Dashboard() {
             <LocationSearch onSelect={handleLocationSelect} />
           </div>
 
+          <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggle />
+
+            {/* Prominent date & time widget */}
+            <div className="hidden md:flex flex-col items-end leading-none px-1">
+              <span className="text-base font-semibold tabular-nums text-slate-700 dark:text-slate-200 tracking-tight">
+                {clock.time}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {clock.date}
+              </span>
+            </div>
+
+            {user ? (
+              <div className="flex items-center gap-2 pl-1 border-l border-slate-200 dark:border-slate-700">
+                <div className="hidden lg:flex flex-col items-end leading-none">
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{user.name}</span>
+                  <span className="text-xs text-slate-400 mt-0.5">{user.email}</span>
+                </div>
+                <button onClick={logout} title="Sign out" className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setShowAuth(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
+                <User size={14} />
+                <span className="hidden sm:inline">Sign in</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: favourites | nav tabs (center) | unit toggle + fetch (right) */}
+        <div className="max-w-7xl mx-auto px-4 pb-2 flex items-center gap-3">
+          {/* Favourites takes remaining left space */}
+          <div className="flex-1 min-w-0">
+            <FavoritesBar currentLocation={displayLocation} onSelect={handleLocationSelect} />
+          </div>
+
+          {/* Nav tabs — centred in available space */}
           <nav className="flex items-center gap-1 shrink-0">
             {(['dashboard', 'alerts', 'settings'] as const).map(tab => (
               <button
@@ -224,20 +266,9 @@ export default function Dashboard() {
             ))}
           </nav>
 
+          {/* Unit toggle + fetch — right-aligned */}
           <div className="flex items-center gap-2 shrink-0">
             <UnitToggle />
-            <ThemeToggle />
-
-            {/* Prominent date & time widget */}
-            <div className="hidden md:flex flex-col items-end leading-none px-1">
-              <span className="text-base font-semibold tabular-nums text-slate-700 dark:text-slate-200 tracking-tight">
-                {clock.time}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {clock.date}
-              </span>
-            </div>
-
             {!activeLocation && (
               <button
                 onClick={triggerFetch}
@@ -248,28 +279,7 @@ export default function Dashboard() {
                 <span className="hidden sm:inline">{fetching ? 'Fetching…' : 'Fetch'}</span>
               </button>
             )}
-
-            {user ? (
-              <div className="flex items-center gap-2 pl-1 border-l border-slate-200 dark:border-slate-700">
-                <div className="hidden lg:flex flex-col items-end leading-none">
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{user.name}</span>
-                  <span className="text-xs text-slate-400 mt-0.5">{user.email}</span>
-                </div>
-                <button onClick={logout} title="Sign out" className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                  <LogOut size={14} />
-                </button>
-              </div>
-            ) : (
-              <button onClick={() => setShowAuth(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
-                <User size={14} />
-                <span className="hidden sm:inline">Sign in</span>
-              </button>
-            )}
           </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 pb-2">
-          <FavoritesBar currentLocation={displayLocation} onSelect={handleLocationSelect} />
         </div>
       </header>
 
