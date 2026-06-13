@@ -42,11 +42,21 @@ const del = <T>(path: string) => request<T>('DELETE', path)
 export const api = {
   weather: {
     current: () => get('/weather/current'),
-    history: (hours = 24) => get('/weather/history', { hours }),
-    stats: (hours = 24) => get('/weather/stats', { hours }),
     fetch: () => post('/weather/fetch'),
     live: (lat: number, lon: number, name: string) =>
       get('/weather/live', { lat, lon, name }),
+    history: (hours = 24, lat?: number, lon?: number) => {
+      const params: Record<string, string | number> = { hours }
+      if (lat !== undefined) params.lat = lat
+      if (lon !== undefined) params.lon = lon
+      return get('/weather/history', params)
+    },
+    stats: (hours = 24, lat?: number, lon?: number) => {
+      const params: Record<string, string | number> = { hours }
+      if (lat !== undefined) params.lat = lat
+      if (lon !== undefined) params.lon = lon
+      return get('/weather/stats', params)
+    },
   },
   alerts: {
     list: () => get('/alerts'),
@@ -72,7 +82,9 @@ export const api = {
   },
   user: {
     getSettings: () => get('/user/settings'),
-    updateSettings: (data: { temp_unit: 'C' | 'F' }) => put('/user/settings', data),
+    updateSettings: (data: Partial<{ temp_unit: 'C' | 'F'; theme: 'dark' | 'light'; notification_urls: string | null }>) => put('/user/settings', data),
+    changePassword: (data: { current_password: string; password: string; password_confirmation: string }) =>
+      post('/user/password', data),
     getLocations: () => get('/user/locations'),
     addLocation: (data: { name: string; country?: string; latitude: number; longitude: number }) =>
       post('/user/locations', data),

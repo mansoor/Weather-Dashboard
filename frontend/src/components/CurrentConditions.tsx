@@ -6,13 +6,7 @@ import type { WeatherReading, WeatherStats } from '@/types/weather'
 import { weatherEmoji, windDirection, fmt } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
-export default function CurrentConditions({
-  reading,
-  stats,
-}: {
-  reading: WeatherReading
-  stats: WeatherStats | null
-}) {
+export default function CurrentConditions({ reading, stats }: { reading: WeatherReading; stats: WeatherStats | null }) {
   const { fmtTemp } = useSettings()
   const emoji = weatherEmoji(reading.weather_code, reading.is_day)
 
@@ -22,12 +16,12 @@ export default function CurrentConditions({
         <div className="flex items-center gap-5">
           <span className="text-7xl">{emoji}</span>
           <div>
-            <div className="text-6xl font-light text-slate-100">
+            <div className="text-6xl font-light text-slate-800 dark:text-slate-100">
               {fmtTemp(reading.temperature, 1).replace(/°[CF]$/, '')}
-              <span className="text-3xl text-slate-400">{fmtTemp(reading.temperature).replace(/[\d.-]+/, '')}</span>
+              <span className="text-3xl text-slate-500 dark:text-slate-400">{fmtTemp(reading.temperature).replace(/[\d.-]+/, '')}</span>
             </div>
-            <div className="text-slate-400 mt-1">Feels like {fmtTemp(reading.feels_like, 1)}</div>
-            <div className="text-slate-300 font-medium mt-0.5">{reading.weather_description}</div>
+            <div className="text-slate-500 dark:text-slate-400 mt-1">Feels like {fmtTemp(reading.feels_like, 1)}</div>
+            <div className="text-slate-700 dark:text-slate-300 font-medium mt-0.5">{reading.weather_description}</div>
           </div>
         </div>
 
@@ -44,7 +38,7 @@ export default function CurrentConditions({
         </div>
 
         <div className="text-right text-slate-500 text-sm shrink-0">
-          <div className="text-slate-300 text-base">{format(parseISO(reading.recorded_at), 'HH:mm')}</div>
+          <div className="text-slate-700 dark:text-slate-300 text-base">{format(parseISO(reading.recorded_at), 'HH:mm')}</div>
           <div>{format(parseISO(reading.recorded_at), 'EEE, d MMM yyyy')}</div>
           <div className="mt-1">{reading.is_day ? '☀️ Daytime' : '🌙 Night'}</div>
         </div>
@@ -55,11 +49,11 @@ export default function CurrentConditions({
 
 function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-2">
-      <span className="text-slate-400">{icon}</span>
+    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/50 rounded-lg px-3 py-2">
+      <span className="text-slate-500 dark:text-slate-400">{icon}</span>
       <div>
         <div className="text-xs text-slate-500">{label}</div>
-        <div className="text-sm font-medium text-slate-200">{value}</div>
+        <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{value}</div>
       </div>
     </div>
   )

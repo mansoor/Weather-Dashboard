@@ -17,7 +17,7 @@ class AuthController extends Controller
         return [
             'user' => $user->apiData(),
             'token' => $token,
-            'settings' => $user->settings?->only('temp_unit') ?? ['temp_unit' => 'C'],
+            'settings' => $user->settings?->only(['temp_unit', 'theme', 'notification_urls']) ?? ['temp_unit' => 'C', 'theme' => 'dark', 'notification_urls' => null],
             'locations' => $user->locations()->orderBy('is_default', 'desc')->get(),
         ];
     }
@@ -31,7 +31,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::create($validated);
-        UserSetting::create(['user_id' => $user->id, 'temp_unit' => 'C']);
+        UserSetting::create(['user_id' => $user->id, 'temp_unit' => 'C', 'theme' => 'dark']);
 
         // Fires SendEmailVerificationNotification listener automatically
         event(new Registered($user));
@@ -73,7 +73,7 @@ class AuthController extends Controller
         $user = $request->user();
         return response()->json([
             'user' => $user->apiData(),
-            'settings' => $user->settings?->only('temp_unit') ?? ['temp_unit' => 'C'],
+            'settings' => $user->settings?->only(['temp_unit', 'theme', 'notification_urls']) ?? ['temp_unit' => 'C', 'theme' => 'dark', 'notification_urls' => null],
             'locations' => $user->locations()->orderBy('is_default', 'desc')->get(),
         ]);
     }

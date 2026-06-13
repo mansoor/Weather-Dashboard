@@ -7,11 +7,11 @@ export default function UnitToggle() {
   return (
     <button
       onClick={toggleUnit}
-      className="flex items-center gap-0.5 bg-slate-700 hover:bg-slate-600 rounded-lg overflow-hidden text-sm transition-colors"
+      className="flex items-center gap-0.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg overflow-hidden text-sm transition-colors"
       title="Toggle temperature unit"
     >
-      <span className={`px-2.5 py-1.5 transition-colors ${unit === 'C' ? 'bg-sky-600 text-white' : 'text-slate-400'}`}>°C</span>
-      <span className={`px-2.5 py-1.5 transition-colors ${unit === 'F' ? 'bg-sky-600 text-white' : 'text-slate-400'}`}>°F</span>
+      <span className={`px-2.5 py-1.5 transition-colors ${unit === 'C' ? 'bg-sky-600 text-white' : 'text-slate-500 dark:text-slate-400'}`}>°C</span>
+      <span className={`px-2.5 py-1.5 transition-colors ${unit === 'F' ? 'bg-sky-600 text-white' : 'text-slate-500 dark:text-slate-400'}`}>°F</span>
     </button>
   )
 }

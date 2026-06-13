@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserSetting extends Model
 {
-    protected $fillable = ['user_id', 'temp_unit'];
+    protected $fillable = ['user_id', 'temp_unit', 'theme', 'notification_urls'];
 
     public function user(): BelongsTo
     {

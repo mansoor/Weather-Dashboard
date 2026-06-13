@@ -9,6 +9,7 @@ interface SettingsContextValue {
   unit: TempUnit
   toggleUnit: () => void
   convertTemp: (celsius: number | null | undefined) => number | null
+  convertToC: (displayValue: number) => number
   fmtTemp: (celsius: number | null | undefined, decimals?: number) => string
   unitLabel: string
 }
@@ -50,13 +51,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     return unit === 'F' ? toF(n) : n
   }, [unit])
 
+  const convertToC = useCallback((displayValue: number): number => {
+    return unit === 'F' ? (displayValue - 32) * 5 / 9 : displayValue
+  }, [unit])
+
   const fmtTemp = useCallback((celsius: number | null | undefined, decimals = 1): string => {
     const v = convertTemp(celsius)
     return v === null ? '—' : `${v.toFixed(decimals)}${unit === 'F' ? '°F' : '°C'}`
   }, [convertTemp, unit])
 
   return (
-    <SettingsContext.Provider value={{ unit, toggleUnit, convertTemp, fmtTemp, unitLabel: unit === 'F' ? '°F' : '°C' }}>
+    <SettingsContext.Provider value={{ unit, toggleUnit, convertTemp, convertToC, fmtTemp, unitLabel: unit === 'F' ? '°F' : '°C' }}>
       {children}
     </SettingsContext.Provider>
   )

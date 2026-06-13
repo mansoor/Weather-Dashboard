@@ -43,11 +43,7 @@ export default function LocationSearch({ onSelect }: Props) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleSelect = (r: GeoResult) => {
-    onSelect(r)
-    setQuery('')
-    setOpen(false)
-  }
+  const handleSelect = (r: GeoResult) => { onSelect(r); setQuery(''); setOpen(false) }
 
   const handleFavorite = async (e: React.MouseEvent, r: GeoResult) => {
     e.stopPropagation()
@@ -57,35 +53,32 @@ export default function LocationSearch({ onSelect }: Props) {
 
   return (
     <div ref={wrapperRef} className="relative">
-      <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 focus-within:border-sky-500 transition-colors">
-        {loading ? <Loader2 size={14} className="text-slate-400 animate-spin shrink-0" /> : <Search size={14} className="text-slate-400 shrink-0" />}
+      <div className="flex items-center gap-2 bg-white border border-slate-300 dark:bg-slate-800 dark:border-slate-700 rounded-lg px-3 py-1.5 focus-within:border-sky-500 transition-colors">
+        {loading
+          ? <Loader2 size={14} className="text-slate-400 animate-spin shrink-0" />
+          : <Search size={14} className="text-slate-400 shrink-0" />}
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Search city or location…"
-          className="bg-transparent text-sm text-slate-200 placeholder-slate-500 focus:outline-none w-48"
+          className="bg-transparent text-sm text-slate-800 placeholder-slate-400 dark:text-slate-200 dark:placeholder-slate-500 focus:outline-none w-48"
         />
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute top-full mt-1 left-0 z-50 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+        <div className="absolute top-full mt-1 left-0 z-50 w-72 bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden">
           {results.map((r, i) => (
-            <div
-              key={i}
-              onClick={() => handleSelect(r)}
-              className="flex items-center justify-between px-3 py-2.5 hover:bg-slate-700 cursor-pointer group"
-            >
+            <div key={i} onClick={() => handleSelect(r)}
+              className="flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer group">
               <div>
-                <span className="text-sm text-slate-200">{r.name}</span>
+                <span className="text-sm text-slate-800 dark:text-slate-200">{r.name}</span>
                 <span className="text-xs text-slate-500 ml-1.5">{[r.admin1, r.country].filter(Boolean).join(', ')}</span>
               </div>
               {user && (
-                <button
-                  onClick={e => handleFavorite(e, r)}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-yellow-400 text-slate-400 transition-all"
-                  title="Add to favorites"
-                >
+                <button onClick={e => handleFavorite(e, r)}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-yellow-500 text-slate-400 transition-all"
+                  title="Add to favorites">
                   <Star size={13} />
                 </button>
               )}

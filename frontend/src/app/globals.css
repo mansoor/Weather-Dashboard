@@ -4,12 +4,20 @@
 
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-100;
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-slate-800/60 backdrop-blur-sm border border-slate-700/50;
+    @apply bg-white/85 backdrop-blur-sm border border-slate-200/80
+           dark:bg-slate-800/60 dark:border-slate-700/50;
+  }
+
+  /* Reusable input style that adapts to theme */
+  .input-base {
+    @apply bg-white border border-slate-300 text-slate-900 placeholder-slate-400
+           focus:border-sky-500 focus:outline-none
+           dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:placeholder-slate-500;
   }
 }

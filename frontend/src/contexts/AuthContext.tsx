@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     locations: [],
-    settings: { temp_unit: 'C' },
+    settings: { temp_unit: 'C', theme: 'dark', notification_urls: null },
     token: null,
     loading: true,
   })
@@ -109,9 +109,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updateSettings = useCallback(async (patch: Partial<UserSettings>) => {
-    const updated: any = await api.user.updateSettings({ ...state.settings, ...patch })
-    setState(prev => ({ ...prev, settings: updated }))
-  }, [state.settings])
+    const updated: any = await api.user.updateSettings(patch)
+    setState(prev => ({ ...prev, settings: { ...prev.settings, ...updated } }))
+  }, [])
 
   const refreshUser = useCallback(async () => {
     const token = localStorage.getItem('auth_token')

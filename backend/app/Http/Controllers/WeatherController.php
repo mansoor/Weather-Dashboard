@@ -27,7 +27,10 @@ class WeatherController extends Controller
         $hours = (int) $request->get('hours', 24);
         $hours = min(max($hours, 1), 168);
 
-        return response()->json($this->weather->getHistory($hours));
+        $lat = $request->has('lat') ? (float) $request->get('lat') : null;
+        $lon = $request->has('lon') ? (float) $request->get('lon') : null;
+
+        return response()->json($this->weather->getHistory($hours, $lat, $lon));
     }
 
     public function stats(Request $request): JsonResponse
@@ -35,7 +38,10 @@ class WeatherController extends Controller
         $hours = (int) $request->get('hours', 24);
         $hours = min(max($hours, 1), 168);
 
-        return response()->json($this->weather->getStats($hours));
+        $lat = $request->has('lat') ? (float) $request->get('lat') : null;
+        $lon = $request->has('lon') ? (float) $request->get('lon') : null;
+
+        return response()->json($this->weather->getStats($hours, $lat, $lon));
     }
 
     public function fetch(): JsonResponse
@@ -48,8 +54,8 @@ class WeatherController extends Controller
     public function live(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'lat' => 'required|numeric|between:-90,90',
-            'lon' => 'required|numeric|between:-180,180',
+            'lat'  => 'required|numeric|between:-90,90',
+            'lon'  => 'required|numeric|between:-180,180',
             'name' => 'required|string|max:255',
         ]);
 

@@ -91,4 +91,6 @@ export interface UserLocation {
 
 export interface UserSettings {
   temp_unit: 'C' | 'F'
+  theme: 'dark' | 'light'
+  notification_urls: string | null
 }
