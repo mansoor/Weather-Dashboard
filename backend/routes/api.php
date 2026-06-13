@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\GeocodingController;
+use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\ThresholdController;
 use App\Http\Controllers\UserLocationController;
 use App\Http\Controllers\UserPasswordController;
@@ -62,6 +65,17 @@ Route::middleware('auth:sanctum')->prefix('user')->group(function () {
     Route::post('/locations', [UserLocationController::class, 'store']);
     Route::patch('/locations/{id}/default', [UserLocationController::class, 'setDefault']);
     Route::delete('/locations/{id}', [UserLocationController::class, 'destroy']);
+});
+
+// Password reset (public)
+Route::post('/auth/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+Route::post('/auth/reset-password', [ResetPasswordController::class, 'reset']);
+
+// Admin routes
+Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function () {
+    Route::get('/users', [AdminController::class, 'users']);
+    Route::patch('/users/{id}', [AdminController::class, 'updateUser']);
+    Route::post('/users/{id}/send-reset', [AdminController::class, 'sendResetLink']);
 });
 
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'time' => now()]));

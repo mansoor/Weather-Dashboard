@@ -79,6 +79,15 @@ export const api = {
     me: () => get('/auth/me'),
     resendVerification: () => post('/auth/email/resend'),
     verifyEmail: (target: string) => get(target.startsWith('/api') ? target.slice(4) : target),
+    forgotPassword: (email: string) => post('/auth/forgot-password', { email }),
+    resetPassword: (data: { token: string; email: string; password: string; password_confirmation: string }) =>
+      post('/auth/reset-password', data),
+  },
+  admin: {
+    users: () => get('/admin/users'),
+    updateUser: (id: number, data: Partial<{ name: string; email: string; password: string; is_admin: boolean }>) =>
+      patch(`/admin/users/${id}`, data),
+    sendReset: (id: number) => post(`/admin/users/${id}/send-reset`),
   },
   user: {
     getSettings: () => get('/user/settings'),

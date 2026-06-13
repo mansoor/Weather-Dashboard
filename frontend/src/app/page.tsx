@@ -19,6 +19,7 @@ import UnitToggle from '@/components/UnitToggle'
 import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
 import AccountSettings from '@/components/AccountSettings'
+import AdminPanel from '@/components/AdminPanel'
 
 type ActiveLocation = { name: string; latitude: number; longitude: number; isDefault?: boolean }
 
@@ -392,6 +393,7 @@ export default function Dashboard() {
                   defaultLocation={displayLocation}
                 />
                 <AccountSettings />
+                {user?.is_admin && <AdminPanel />}
               </>
             )}
           </>

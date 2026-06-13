@@ -14,13 +14,14 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password'];
+    protected $fillable = ['name', 'email', 'password', 'is_admin', 'email_verified_at'];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
-        'password' => 'hashed',
+        'password'          => 'hashed',
         'email_verified_at' => 'datetime',
+        'is_admin'          => 'boolean',
     ];
 
     public function locations(): HasMany
@@ -39,13 +40,19 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->notify(new VerifyEmailNotification());
     }
 
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
     public function apiData(): array
     {
         return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'email' => $this->email,
+            'id'                => $this->id,
+            'name'              => $this->name,
+            'email'             => $this->email,
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
+            'is_admin'          => (bool) $this->is_admin,
         ];
     }
 }

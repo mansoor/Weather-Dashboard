@@ -30,7 +30,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::create($validated);
+        $isFirst = User::count() === 0;
+        $user = User::create(array_merge($validated, ['is_admin' => $isFirst]));
         UserSetting::create(['user_id' => $user->id, 'temp_unit' => 'C', 'theme' => 'dark']);
 
         // Fires SendEmailVerificationNotification listener automatically
