@@ -300,7 +300,10 @@ export default function Dashboard() {
             {(['dashboard', 'alerts', 'settings'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  if (!user && tab !== 'dashboard') { setShowAuth(true); return }
+                  setActiveTab(tab)
+                }}
                 className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors relative ${
                   activeTab === tab
                     ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-white'
