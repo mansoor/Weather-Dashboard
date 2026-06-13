@@ -108,3 +108,39 @@ export interface UserSettings {
   theme: 'dark' | 'light'
   notification_urls: string | null
 }
+
+export interface HourlyPoint {
+  time: string
+  temperature: number | null
+  apparent_temperature: number | null
+  precipitation_probability: number | null
+  precipitation: number | null
+  weather_code: number | null
+  wind_speed: number | null
+  is_day: boolean
+  humidity: number | null
+  dew_point: number | null
+  uv_index: number | null
+}
+
+export interface DailyPoint {
+  date: string
+  temp_max: number | null
+  temp_min: number | null
+  sunrise: string | null
+  sunset: string | null
+  precipitation_sum: number | null
+  precipitation_probability: number | null
+  weather_code: number | null
+  wind_speed_max: number | null
+  uv_index_max: number | null
+}
+
+export interface ForecastData {
+  timezone: string | null
+  sunrise: string | null
+  sunset: string | null
+  dew_point: number | null
+  hourly: HourlyPoint[]
+  daily: DailyPoint[]
+}

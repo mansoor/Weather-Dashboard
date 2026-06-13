@@ -68,6 +68,14 @@ export const api = {
     update: (id: number, data: Partial<{ value: number; enabled: boolean; notify_email: boolean; severity: string; monitor_lat: number | null; monitor_lon: number | null; monitor_name: string | null }>) =>
       put(`/thresholds/${id}`, data),
   },
+  forecast: {
+    get: (lat?: number, lon?: number) => {
+      const params: Record<string, string | number> = {}
+      if (lat !== undefined) params.lat = lat
+      if (lon !== undefined) params.lon = lon
+      return get('/weather/forecast', params)
+    },
+  },
   geocoding: {
     search: (q: string) => get('/geocoding/search', { q }),
   },

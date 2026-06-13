@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ForecastController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ForgotPasswordController;
@@ -34,6 +35,9 @@ Route::prefix('thresholds')->group(function () {
     Route::get('/', [ThresholdController::class, 'index']);
     Route::put('/{id}', [ThresholdController::class, 'update']);
 });
+
+// Forecast (hourly + daily)
+Route::get('/weather/forecast', [ForecastController::class, 'index']);
 
 // Geocoding
 Route::get('/geocoding/search', [GeocodingController::class, 'search']);

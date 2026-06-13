@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star } from 'lucide-react'
-import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult } from '@/types/weather'
+import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult, ForecastData } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { loadGuestFavs, saveGuestFavs } from '@/components/FavoritesBar'
@@ -20,6 +20,10 @@ import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
 import AccountSettings from '@/components/AccountSettings'
 import AdminPanel from '@/components/AdminPanel'
+import HourlyForecast from '@/components/HourlyForecast'
+import DailyForecast from '@/components/DailyForecast'
+import SunriseSunset from '@/components/SunriseSunset'
+import AIRecommendations from '@/components/AIRecommendations'
 
 type ActiveLocation = { name: string; latitude: number; longitude: number; isDefault?: boolean }
 
@@ -48,6 +52,7 @@ export default function Dashboard() {
   const [current, setCurrent] = useState<WeatherReading | null>(null)
   const [alerts, setAlerts] = useState<WeatherAlert[]>([])
   const [stats, setStats] = useState<WeatherStats | null>(null)
+  const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetching, setFetching] = useState(false)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'settings'>('dashboard')
@@ -132,6 +137,15 @@ export default function Dashboard() {
     const interval = setInterval(loadData, 60_000)
     return () => clearInterval(interval)
   }, [loadData, authLoading])
+
+  // Fetch forecast whenever active location changes
+  useEffect(() => {
+    const lat = activeLocation?.latitude
+    const lon = activeLocation?.longitude
+    api.forecast.get(lat, lon)
+      .then(d => setForecast(d as ForecastData))
+      .catch(() => setForecast(null))
+  }, [activeLocation?.latitude, activeLocation?.longitude])
 
   const handleLocationSelect = (result: GeoResult | ActiveLocation) => {
     const loc: ActiveLocation = {
@@ -353,8 +367,16 @@ export default function Dashboard() {
                 {current ? (
                   <>
                     <CurrentConditions reading={current} stats={stats} />
+                    <AIRecommendations reading={current} forecast={forecast} />
+                    {forecast && <HourlyForecast hourly={forecast.hourly} timezone={forecast.timezone} />}
                     <MetricCards reading={current} />
                     <AirQuality reading={current} />
+                    {forecast && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <SunriseSunset sunrise={forecast.sunrise} sunset={forecast.sunset} timezone={forecast.timezone} />
+                        <DailyForecast daily={forecast.daily} />
+                      </div>
+                    )}
                     <div className="glass rounded-xl p-5">
                       <div className="flex items-center justify-between mb-4">
                         <h2 className="font-semibold text-slate-800 dark:text-slate-200">History</h2>
