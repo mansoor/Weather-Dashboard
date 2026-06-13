@@ -31,7 +31,7 @@ class ForecastController extends Controller
                         'precipitation_sum', 'precipitation_probability_max',
                         'weather_code', 'wind_speed_10m_max', 'uv_index_max',
                     ]),
-                    'current'        => 'sunrise,sunset,dew_point_2m',
+                    'current'        => 'dew_point_2m',
                     'wind_speed_unit'=> 'kmh',
                     'timezone'       => 'auto',
                     'forecast_days'  => 7,
@@ -87,8 +87,8 @@ class ForecastController extends Controller
 
         return response()->json([
             'timezone'   => $data['timezone'] ?? null,
-            'sunrise'    => $data['current']['sunrise'] ?? ($data['daily']['sunrise'][0] ?? null),
-            'sunset'     => $data['current']['sunset']  ?? ($data['daily']['sunset'][0]  ?? null),
+            'sunrise'    => $data['daily']['sunrise'][0] ?? null,
+            'sunset'     => $data['daily']['sunset'][0]  ?? null,
             'dew_point'  => $data['current']['dew_point_2m'] ?? null,
             'hourly'     => $hourly,
             'daily'      => $daily,
