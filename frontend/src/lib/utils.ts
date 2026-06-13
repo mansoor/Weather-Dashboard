@@ -37,6 +37,47 @@ export function aqiBg(aqi: number | null): string {
   return 'bg-purple-900/40'
 }
 
+// Raw hex + label for the AQI bands — used by SVG fills and pills where
+// Tailwind class strings (aqiColor/aqiBg) don't apply. Scale-aware: the US AQI
+// runs 0–500 with different breakpoints than the European AQI (0–100+).
+export type AqiScale = 'us' | 'eu'
+
+export function aqiHex(aqi: number | null, scale: AqiScale = 'eu'): string {
+  if (aqi === null) return '#64748b'
+  if (scale === 'us') {
+    if (aqi <= 50) return '#16a34a'   // Good
+    if (aqi <= 100) return '#eab308'  // Moderate
+    if (aqi <= 150) return '#f97316'  // Unhealthy for sensitive groups
+    if (aqi <= 200) return '#dc2626'  // Unhealthy
+    if (aqi <= 300) return '#7e22ce'  // Very unhealthy
+    return '#7f1d1d'                  // Hazardous
+  }
+  if (aqi <= 20) return '#16a34a'
+  if (aqi <= 40) return '#84cc16'
+  if (aqi <= 60) return '#eab308'
+  if (aqi <= 80) return '#f97316'
+  if (aqi <= 100) return '#dc2626'
+  return '#7e22ce'
+}
+
+export function aqiLabel(aqi: number | null, scale: AqiScale = 'eu'): string {
+  if (aqi === null) return 'Unknown'
+  if (scale === 'us') {
+    if (aqi <= 50) return 'Good'
+    if (aqi <= 100) return 'Moderate'
+    if (aqi <= 150) return 'Sensitive'
+    if (aqi <= 200) return 'Unhealthy'
+    if (aqi <= 300) return 'Very Unhealthy'
+    return 'Hazardous'
+  }
+  if (aqi <= 20) return 'Good'
+  if (aqi <= 40) return 'Fair'
+  if (aqi <= 60) return 'Moderate'
+  if (aqi <= 80) return 'Poor'
+  if (aqi <= 100) return 'Very Poor'
+  return 'Extremely Poor'
+}
+
 export function severityColor(severity: string): string {
   switch (severity) {
     case 'critical': return 'text-red-400 border-red-500/50 bg-red-950/40'

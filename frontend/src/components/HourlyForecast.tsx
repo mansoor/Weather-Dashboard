@@ -3,12 +3,13 @@
 import { useRef, useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { HourlyPoint } from '@/types/weather'
-import { weatherEmoji } from '@/lib/utils'
+import { weatherEmoji, aqiHex, aqiLabel } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
 interface Props {
   hourly: HourlyPoint[]
   timezone: string | null
+  aqiScale?: 'us' | 'eu'
 }
 
 function formatHour(isoTime: string, timezone: string | null): string {
@@ -24,7 +25,7 @@ function formatHour(isoTime: string, timezone: string | null): string {
   }
 }
 
-export default function HourlyForecast({ hourly, timezone }: Props) {
+export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Props) {
   const { fmtTemp } = useSettings()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
@@ -134,6 +135,18 @@ export default function HourlyForecast({ hourly, timezone }: Props) {
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                       {fmtTemp(h.temperature, 0)}
                     </span>
+                    {/* Air quality */}
+                    {h.aqi != null ? (
+                      <span
+                        title={`Air quality (${aqiScale.toUpperCase()} AQI): ${aqiLabel(h.aqi, aqiScale)} (${h.aqi})`}
+                        className="mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none"
+                        style={{ color: aqiHex(h.aqi, aqiScale), backgroundColor: `${aqiHex(h.aqi, aqiScale)}22` }}
+                      >
+                        {h.aqi}
+                      </span>
+                    ) : (
+                      <span className="mt-1 text-[10px] text-transparent">—</span>
+                    )}
                   </div>
                 )
               })}

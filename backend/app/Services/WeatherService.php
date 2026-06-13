@@ -94,6 +94,13 @@ class WeatherService
 
     private function buildReading(float $lat, float $lon, string $name, array $weather, array $aqi): array
     {
+        // US-style AQI (0–500) across the Americas, European AQI (0–100+) elsewhere.
+        $aqiScale = str_starts_with($weather['_timezone'] ?? 'UTC', 'America/') ? 'us' : 'eu';
+        $aqiValue = $aqiScale === 'us'
+            ? ($aqi['us_aqi'] ?? null)
+            : ($aqi['european_aqi'] ?? null);
+        $aqiValue = $aqiValue !== null ? (int) round($aqiValue) : null;
+
         return [
             'location_name'            => $name,
             'timezone'                 => $weather['_timezone'] ?? null,
@@ -114,8 +121,9 @@ class WeatherService
             'weather_code'             => $weather['weather_code'] ?? null,
             'weather_description'      => $this->decodeWeatherCode($weather['weather_code'] ?? 0),
             'is_day'                   => ($weather['is_day'] ?? 1) === 1,
-            'aqi'                      => $aqi['european_aqi'] ?? null,
-            'aqi_label'                => $this->decodeAqi($aqi['european_aqi'] ?? null),
+            'aqi'                      => $aqiValue,
+            'aqi_label'                => $this->decodeAqi($aqiValue, $aqiScale),
+            'aqi_scale'                => $aqiScale,
             'pm25'                     => $aqi['pm2_5'] ?? null,
             'pm10'                     => $aqi['pm10'] ?? null,
             'co'                       => $aqi['carbon_monoxide'] ?? null,
@@ -158,7 +166,7 @@ class WeatherService
                 'latitude'  => $lat,
                 'longitude' => $lon,
                 'current'   => implode(',', [
-                    'european_aqi', 'pm2_5', 'pm10', 'carbon_monoxide', 'nitrogen_dioxide', 'ozone',
+                    'us_aqi', 'european_aqi', 'pm2_5', 'pm10', 'carbon_monoxide', 'nitrogen_dioxide', 'ozone',
                 ]),
                 'timezone' => 'auto',
             ];
@@ -193,9 +201,21 @@ class WeatherService
         };
     }
 
-    private function decodeAqi(?int $aqi): string
+    private function decodeAqi(?int $aqi, string $scale = 'eu'): string
     {
         if ($aqi === null) return 'Unknown';
+
+        if ($scale === 'us') {
+            return match(true) {
+                $aqi <= 50  => 'Good',
+                $aqi <= 100 => 'Moderate',
+                $aqi <= 150 => 'Unhealthy for Sensitive Groups',
+                $aqi <= 200 => 'Unhealthy',
+                $aqi <= 300 => 'Very Unhealthy',
+                default     => 'Hazardous',
+            };
+        }
+
         return match(true) {
             $aqi <= 20  => 'Good',
             $aqi <= 40  => 'Fair',

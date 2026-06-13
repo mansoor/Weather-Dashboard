@@ -43,8 +43,12 @@ class DatabaseSeeder extends Seeder
             [
                 'metric' => 'aqi',
                 'operator' => '>',
-                'value' => config('weather.thresholds.aqi_high', 3),
-                'unit' => 'index',
+                // AQI is interpreted in the monitored location's scale (US 0–500 /
+                // EU 0–100+); 80 ≈ "Poor" on the European scale used by the
+                // default London location. (Hardcoded — the legacy ALERT_AQI_HIGH
+                // env value referred to the old 1–5 category scale.)
+                'value' => 80,
+                'unit' => 'AQI',
                 'severity' => 'warning',
                 'label' => 'Poor Air Quality',
                 'enabled' => true,

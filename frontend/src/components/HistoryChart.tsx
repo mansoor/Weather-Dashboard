@@ -54,6 +54,9 @@ export default function HistoryChart({ hours, location }: Props) {
     </div>
   )
 
+  const aqiScale = data.find(r => r.aqi_scale)?.aqi_scale ?? 'eu'
+  const aqiSeriesName = aqiScale === 'us' ? 'US AQI' : 'European AQI'
+
   const modes: { key: ChartMode; label: string }[] = [
     { key: 'temperature', label: 'Temperature' },
     { key: 'wind', label: 'Wind' },
@@ -139,7 +142,7 @@ export default function HistoryChart({ hours, location }: Props) {
               <XAxis dataKey="time" tick={tickStyle} />
               <YAxis tick={tickStyle} />
               <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabel} />
-              <Area type="monotone" dataKey="aqi" stroke="#a3e635" fill="url(#aqiGrad)" dot={false} name="European AQI" />
+              <Area type="monotone" dataKey="aqi" stroke="#a3e635" fill="url(#aqiGrad)" dot={false} name={aqiSeriesName} />
             </AreaChart>
           )}
         </ResponsiveContainer>

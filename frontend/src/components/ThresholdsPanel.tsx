@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle, MapPin, Save, Settings } from 'lucide-react'
 import type { AlertThreshold, UserLocation } from '@/types/weather'
 import { api } from '@/lib/api'
+import { aqiHex, aqiLabel } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
 interface MonitorLocation {
@@ -16,9 +17,10 @@ interface Props {
   onUpdate: () => void
   locations?: UserLocation[]
   defaultLocation?: { name: string; latitude: number; longitude: number } | null
+  aqiScale?: 'us' | 'eu'
 }
 
-export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocation }: Props) {
+export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocation, aqiScale = 'eu' }: Props) {
   const { unit, convertTemp, convertToC, unitLabel } = useSettings()
   const [thresholds, setThresholds] = useState<AlertThreshold[]>([])
   const [saving, setSaving] = useState<number | null>(null)
@@ -230,8 +232,17 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
                     />
                     <span className="text-slate-500 text-xs">
                       {isTempThreshold(t) ? unitLabel : (t.unit ?? '')}
+                      {t.metric === 'aqi' && ` (${aqiScale.toUpperCase()})`}
                     </span>
                   </div>
+                  {t.metric === 'aqi' && (
+                    <div className="text-[11px] mt-1 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full" style={{ background: aqiHex(Number(getValue(t, 'value')), aqiScale) }} />
+                      <span className="text-slate-500">
+                        {aqiLabel(Number(getValue(t, 'value')), aqiScale)} · {aqiScale === 'us' ? '0–500 scale' : '0–100+ scale'}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="p-4">
                   <select

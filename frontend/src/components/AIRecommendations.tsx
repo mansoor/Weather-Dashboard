@@ -14,6 +14,12 @@ function getRecs(reading: WeatherReading, forecast: ForecastData | null): Recomm
   const recs: Recommendation[] = []
   const t = reading.temperature ?? 20
   const aqi = reading.aqi ?? 0
+  // AQI breakpoints differ by scale (US 0–500 vs EU 0–100+).
+  const scale = reading.aqi_scale ?? 'eu'
+  const aqiHi   = scale === 'us' ? 150 : 80   // unhealthy
+  const aqiMid  = scale === 'us' ? 100 : 60   // poor
+  const aqiLo   = scale === 'us' ? 50  : 40   // moderate
+  const aqiGood = scale === 'us' ? 50  : 20   // good ceiling
   const uv = reading.uv_index ?? 0
   const wind = reading.wind_speed ?? 0
   const humidity = reading.humidity ?? 50
@@ -52,15 +58,15 @@ function getRecs(reading: WeatherReading, forecast: ForecastData | null): Recomm
       detail: 'A warm jacket, hat, and gloves are recommended. Wind chill may make it feel colder.' })
   }
   // Air quality
-  if (aqi > 150) {
+  if (aqi > aqiHi) {
     recs.push({ emoji: '😷', priority: 0, color: 'text-red-600 dark:text-red-400',
       title: 'Unhealthy air quality',
       detail: 'Wear an N95/FFP2 mask outdoors. Avoid prolonged outdoor exposure and keep windows closed.' })
-  } else if (aqi > 100) {
+  } else if (aqi > aqiMid) {
     recs.push({ emoji: '😮‍💨', priority: 1, color: 'text-orange-500 dark:text-orange-400',
       title: 'Poor air quality',
       detail: 'Consider a mask for outdoor activities, especially if you have asthma or allergies. Limit strenuous exercise outside.' })
-  } else if (aqi > 50) {
+  } else if (aqi > aqiLo) {
     recs.push({ emoji: '🌿', priority: 4, color: 'text-yellow-600 dark:text-yellow-400',
       title: 'Moderate air quality',
       detail: 'Sensitive individuals (asthma, elderly, children) may want to reduce prolonged outdoor exertion.' })
@@ -117,7 +123,7 @@ function getRecs(reading: WeatherReading, forecast: ForecastData | null): Recomm
   }
 
   // Good conditions — positive recommendations
-  const isGood = t >= 16 && t <= 28 && aqi <= 50 && uv <= 5 && precip < 20 && wind < 25
+  const isGood = t >= 16 && t <= 28 && aqi <= aqiGood && uv <= 5 && precip < 20 && wind < 25
   if (isGood && recs.filter(r => r.priority <= 2).length === 0) {
     if (t >= 18 && t <= 26 && uv >= 3) {
       recs.push({ emoji: '🥾', priority: 5, color: 'text-emerald-600 dark:text-emerald-400',

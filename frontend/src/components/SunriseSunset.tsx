@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DayHourPoint } from '@/types/weather'
-import { weatherEmoji } from '@/lib/utils'
+import { weatherEmoji, aqiHex, aqiLabel } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
 // ── Geometry ──────────────────────────────────────────────────
@@ -13,7 +13,9 @@ const C = 180
 const R_ORBIT    = 165   // sun / moon path — OUTSIDE the disc
 const R_LABEL    = 156   // hour labels
 const R_RING_OUT = 150   // thermal ring outer
-const R_RING_IN  = 122   // thermal ring inner
+const R_RING_IN  = 124   // thermal ring inner
+const R_AQI_OUT  = 121   // air-quality ring outer
+const R_AQI_IN   = 113   // air-quality ring inner
 const R_GLOBE    = 110   // earth globe
 const R_TICK     = 94    // analog clock tick ring
 const DEG = Math.PI / 180
@@ -99,6 +101,21 @@ function moonEmoji(phase: number | null | undefined): string {
   return ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'][Math.floor(((p + 0.0625) % 1) * 8)]
 }
 
+// ── Weather code → condition category & sky tint ──────────────
+type Sky = { cat: 'clear' | 'cloud' | 'rain' | 'snow' | 'fog' | 'storm'; bg: string; halo: string }
+function skyFor(code: number | null, day: boolean): Sky {
+  const c = code ?? 0
+  if (c >= 95) return { cat: 'storm', bg: day ? '#3b3457' : '#1a1730', halo: '#7c3aed' }
+  if (c >= 71 && c <= 86 && c !== 80 && c !== 81 && c !== 82)
+    return { cat: 'snow', bg: day ? '#dbe4ee' : '#1e293b', halo: '#bae6fd' }
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82))
+    return { cat: 'rain', bg: day ? '#5b7286' : '#172033', halo: '#38bdf8' }
+  if (c === 45 || c === 48) return { cat: 'fog', bg: day ? '#c3cad2' : '#222b38', halo: '#94a3b8' }
+  if (c === 3) return { cat: 'cloud', bg: day ? '#9aa9b8' : '#1b2430', halo: '#cbd5e1' }
+  if (c === 1 || c === 2) return { cat: 'cloud', bg: day ? '#bcd3ea' : '#15203a', halo: '#e2e8f0' }
+  return { cat: 'clear', bg: day ? '#7dc4f5' : '#0b1733', halo: '#fcd34d' }
+}
+
 // ── Component ─────────────────────────────────────────────────
 interface Props {
   sunrise: string | null
@@ -109,10 +126,11 @@ interface Props {
   timezone: string | null
   dayHourly: DayHourPoint[]
   currentTemp?: number | null
+  aqiScale?: 'us' | 'eu'
 }
 
 export default function SunriseSunset({
-  sunrise, sunset, moonrise, moonset, moon_phase, timezone, dayHourly, currentTemp,
+  sunrise, sunset, moonrise, moonset, moon_phase, timezone, dayHourly, currentTemp, aqiScale = 'eu',
 }: Props) {
   const { fmtTemp } = useSettings()
   const [now, setNow] = useState(() => tzParts(timezone))
@@ -148,18 +166,66 @@ export default function SunriseSunset({
   const dayArc   = srH != null && ssH != null ? arcPath(srH, ssH) : ''
   const nightArc = srH != null && ssH != null ? arcPath(ssH, srH + 24) : ''
 
-  // ── Earth day/night terminator (night cap = half-disc opposite the sun) ──
+  // ── Earth day/night terminator ───────────────────────────────
+  // Models the globe as a lit sphere: a point is in daylight when its surface
+  // normal faces the sun. The sun's *elevation* drives how much of the disc is
+  // lit — fully lit at solar noon, half at sunrise/sunset, fully dark at
+  // midnight — so the shadow tracks the real sunrise/sunset times.
+  const sunElev = (() => {
+    if (srH == null || ssH == null) return 0.6
+    let e: number
+    if (nowH >= srH && nowH <= ssH) {
+      // Daytime: 0 at sunrise → 1 at solar noon → 0 at sunset.
+      e = Math.sin(Math.PI * (nowH - srH) / (ssH - srH))
+    } else {
+      // Night: 0 at sunset → -1 at solar midnight → 0 at next sunrise.
+      const t = nowH < srH ? nowH + 24 : nowH
+      e = -Math.sin(Math.PI * (t - ssH) / (srH + 24 - ssH))
+    }
+    // Sharpen the response so daytime reads as fully lit and night as fully
+    // dark, with a quick (~1 h) twilight sweep right at sunrise/sunset — rather
+    // than a slow astronomical terminator that leaves the globe half-lit hours
+    // into the night. The zero-crossing stays exactly at sunrise/sunset.
+    return Math.max(-1, Math.min(1, e * 3))
+  })()
+
+  // Night region polygon on the visible disc (where normal·sun < 0).
   const nightCap = (() => {
+    const A = hourAngle(nowH)                 // sun azimuth direction on the dial
+    const ux = Math.cos(A), uy = Math.sin(A)  // unit vector toward the sun
+    const px = -Math.sin(A), py = Math.cos(A) // perpendicular (terminator poles)
+    const sinE = Math.max(-1, Math.min(1, sunElev))
     const pts: string[] = []
-    // Night centre direction is anti-sun. Sample the 180° away from the sun.
-    const sunDeg = hourAngle(nowH) / DEG
-    for (let a = sunDeg + 90; a <= sunDeg + 270; a += 6) {
+    // Terminator curve: w = -sinE·√(1-v²), v ∈ [-1, 1].
+    for (let v = -1; v <= 1.0001; v += 0.1) {
+      const vc = Math.max(-1, Math.min(1, v))
+      const w = -sinE * Math.sqrt(1 - vc * vc)
+      const x = C + R_GLOBE * (w * ux + vc * px)
+      const y = C + R_GLOBE * (w * uy + vc * py)
+      pts.push(`${f(x)},${f(y)}`)
+    }
+    // Limb arc on the night (anti-sun) side, from +pole back to −pole.
+    const aDeg = (Math.atan2(uy, ux) / DEG)
+    for (let a = aDeg + 90; a <= aDeg + 270.0001; a += 6) {
       const x = C + R_GLOBE * Math.cos(a * DEG)
       const y = C + R_GLOBE * Math.sin(a * DEG)
       pts.push(`${f(x)},${f(y)}`)
     }
     return pts.join(' ')
   })()
+
+  // Whether a globe-surface point is currently in night (for city lights).
+  const isNightPoint = (x: number, y: number) => {
+    const A = hourAngle(nowH)
+    const nx = (x - C) / R_GLOBE, ny = (y - C) / R_GLOBE
+    const r2 = nx * nx + ny * ny
+    if (r2 >= 1) return false
+    const nz = Math.sqrt(1 - r2)
+    const sinE = Math.max(-1, Math.min(1, sunElev))
+    const cosE = Math.sqrt(1 - sinE * sinE)
+    const dot = (nx * Math.cos(A) + ny * Math.sin(A)) * cosE + nz * sinE
+    return dot < 0
+  }
 
   // ── Active hour shown in the hub (hover overrides "now") ──
   const activeHourInt = hover ?? now.h
@@ -169,6 +235,11 @@ export default function SunriseSunset({
     : (activeData?.temperature ?? null)
   const activeCode = activeData?.weather_code ?? null
   const activeIsDay = activeData?.is_day ?? isDay
+  const activeAqi = activeData?.aqi ?? null
+
+  // Current weather drives the globe's sky tint & overlay motif.
+  const curData = byHour.get(now.h)
+  const sky = skyFor(curData?.weather_code ?? null, isDay)
 
   const dateStr = (() => {
     try {
@@ -226,7 +297,15 @@ export default function SunriseSunset({
           <filter id="soft"><feGaussianBlur stdDeviation="2.2" /></filter>
           <filter id="glow"><feGaussianBlur stdDeviation="2" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <radialGradient id="skyBg" cx="50%" cy="42%" r="62%">
+            <stop offset="0%"  stopColor={sky.bg} stopOpacity="0.0" />
+            <stop offset="72%" stopColor={sky.bg} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={sky.bg} stopOpacity="0.42" />
+          </radialGradient>
         </defs>
+
+        {/* ── Weather-aware sky backdrop (tinted by current conditions) ── */}
+        <circle cx={C} cy={C} r={R_ORBIT} fill="url(#skyBg)" />
 
         {/* ── Orbit: faint full ring + day / night arcs ── */}
         <circle cx={C} cy={C} r={R_ORBIT} fill="none" stroke="#cbd5e1"
@@ -243,6 +322,17 @@ export default function SunriseSunset({
               fill={tempColor(d?.temperature ?? null)}
               opacity={d?.is_past ? 0.45 : 0.92}
               stroke={isActive ? '#fff' : 'none'} strokeWidth={isActive ? 1.5 : 0}
+              style={{ transition: 'opacity .2s' }} />
+          )
+        })}
+
+        {/* ── Air-quality ring: one wedge per hour, coloured by European AQI ── */}
+        {Array.from({ length: 24 }, (_, h) => {
+          const d = byHour.get(h)
+          if (d?.aqi == null) return null
+          return (
+            <path key={h} d={sector(R_AQI_OUT, R_AQI_IN, h - 0.5, h + 0.5)}
+              fill={aqiHex(d.aqi, aqiScale)} opacity={d.is_past ? 0.4 : 0.88}
               style={{ transition: 'opacity .2s' }} />
           )
         })}
@@ -276,20 +366,53 @@ export default function SunriseSunset({
             <path d="M150 190 q24 -8 40 8 q14 16 0 34 q-18 20 -42 10 q-18 -10 -12 -32 q4 -16 14 -20 Z" />
             <path d="M214 196 q18 -4 26 10 q8 16 -6 26 q-16 10 -28 -2 q-10 -12 0 -26 q3 -6 8 -8 Z" />
           </g>
-          {/* Atmosphere day-side warm glow */}
-          <circle cx={C} cy={C} r={R_GLOBE} fill="url(#dayGlow)" />
+          {/* Atmosphere day-side warm glow (fades out at night) */}
+          <circle cx={C} cy={C} r={R_GLOBE} fill="url(#dayGlow)"
+            opacity={Math.max(0.15, sunElev)} />
           {/* Night terminator cap */}
           <polygon points={nightCap} fill="#0b1220" opacity="0.72" />
           <polygon points={nightCap} fill="#0b1220" opacity="0.4" filter="url(#soft)" />
           {/* City-lights sparkle on the night side */}
-          {[[150,150],[170,138],[200,168],[158,200],[210,210],[186,150]].map(([x,y],i) => {
-            const a = hourAngle(nowH) / DEG
-            const dx = x - C, dy = y - C
-            const ang = Math.atan2(dy, dx) / DEG
-            const diff = Math.abs(((ang - a + 540) % 360) - 180)
-            return diff > 90 ? <circle key={i} cx={x} cy={y} r="0.9" fill="#fbbf24" opacity="0.8" /> : null
-          })}
+          {[[150,150],[170,138],[200,168],[158,200],[210,210],[186,150]].map(([x,y],i) =>
+            isNightPoint(x, y) ? <circle key={i} cx={x} cy={y} r="0.9" fill="#fbbf24" opacity="0.8" /> : null
+          )}
+
+          {/* ── Current-weather overlay motif ── */}
+          {(sky.cat === 'cloud' || sky.cat === 'fog') && (
+            <g fill="#f1f5f9" opacity={sky.cat === 'fog' ? 0.32 : 0.5}>
+              <ellipse cx="150" cy="135" rx="34" ry="13" />
+              <ellipse cx="200" cy="160" rx="40" ry="15" />
+              <ellipse cx="168" cy="205" rx="36" ry="13" />
+            </g>
+          )}
+          {(sky.cat === 'rain' || sky.cat === 'storm') && (
+            <>
+              <g fill="#cbd5e1" opacity="0.45">
+                <ellipse cx="160" cy="140" rx="34" ry="12" />
+                <ellipse cx="205" cy="170" rx="38" ry="13" />
+              </g>
+              <g stroke="#7dd3fc" strokeWidth="1.4" strokeLinecap="round" opacity="0.7">
+                {[140, 162, 184, 206, 228].map((x, i) => (
+                  <line key={i} x1={x} y1={158 + (i % 2) * 8} x2={x - 6} y2={176 + (i % 2) * 8} />
+                ))}
+              </g>
+              {sky.cat === 'storm' && (
+                <polygon points="178,150 168,176 178,176 170,200 196,168 184,168 192,150"
+                  fill="#fde047" opacity="0.95" />
+              )}
+            </>
+          )}
+          {sky.cat === 'snow' && (
+            <g fill="#f8fafc" opacity="0.92">
+              {[[150,148],[172,164],[196,150],[160,188],[210,182],[186,206],[140,170]].map(([x,y],i) => (
+                <circle key={i} cx={x} cy={y} r="2" />
+              ))}
+            </g>
+          )}
         </g>
+        {/* Weather-tinted atmosphere halo */}
+        <circle cx={C} cy={C} r={R_GLOBE + 1.5} fill="none" stroke={sky.halo}
+          strokeWidth="2.5" opacity="0.4" filter="url(#soft)" />
         <circle cx={C} cy={C} r={R_GLOBE} fill="none" stroke="#1e293b" strokeWidth="1" opacity="0.4" />
 
         {/* ── Analog clock tick ring ── */}
@@ -328,23 +451,28 @@ export default function SunriseSunset({
           ? <text x={bodyX} y={bodyY} textAnchor="middle" dominantBaseline="middle" fontSize="20" filter="url(#glow)">☀️</text>
           : <text x={bodyX} y={bodyY} textAnchor="middle" dominantBaseline="middle" fontSize="18">{moonEmoji(moon_phase)}</text>}
 
-        {/* ── Central hub plaque (date / time / temp) ── */}
+        {/* ── Central hub plaque (date / time / temp / AQI) ── */}
         <g pointerEvents="none">
-          <circle cx={C} cy={C} r="44" fill="#0f172a" opacity="0.82" />
-          <circle cx={C} cy={C} r="44" fill="none" stroke="#334155" strokeWidth="1" />
-          <text x={C} y={C - 26} textAnchor="middle" fontSize="8" fill="#94a3b8">{dateStr}</text>
-          <text x={C} y={C - 14} textAnchor="middle" fontSize="9" fontWeight="600"
+          <circle cx={C} cy={C} r="47" fill="#0f172a" opacity="0.84" />
+          <circle cx={C} cy={C} r="47" fill="none" stroke="#334155" strokeWidth="1" />
+          <text x={C} y={C - 30} textAnchor="middle" fontSize="8" fill="#94a3b8">{dateStr}</text>
+          <text x={C} y={C - 18} textAnchor="middle" fontSize="9" fontWeight="600"
             fill={hover != null ? '#38bdf8' : '#e2e8f0'}>
             {hover != null ? `${hover === now.h ? 'Now · ' : ''}${hourLabel(activeHourInt)}` : timeStr}
           </text>
-          <text x={C} y={C + 12} textAnchor="middle" fontSize="26" fontWeight="800" fill="#f8fafc">
+          <text x={C} y={C + 5} textAnchor="middle" fontSize="25" fontWeight="800" fill="#f8fafc">
             {activeTemp != null ? fmtTemp(activeTemp, 0) : '—'}
           </text>
-          <text x={C} y={C + 30} textAnchor="middle" fontSize="14">
+          <text x={C} y={C + 20} textAnchor="middle" fontSize="13">
             {activeCode != null ? weatherEmoji(activeCode, activeIsDay) : ''}
           </text>
+          {activeAqi != null && (
+            <text x={C} y={C + 34} textAnchor="middle" fontSize="8" fontWeight="700" fill={aqiHex(activeAqi, aqiScale)}>
+              AQI {activeAqi} · {aqiLabel(activeAqi, aqiScale)}
+            </text>
+          )}
           {hover != null && (
-            <text x={C} y={C + 40} textAnchor="middle" fontSize="6.5" fill="#64748b">
+            <text x={C} y={C + 43} textAnchor="middle" fontSize="6" fill="#64748b">
               {activeData?.is_past ? 'observed' : 'forecast'}
             </text>
           )}
@@ -357,12 +485,15 @@ export default function SunriseSunset({
           <span>🌅 {fmtClock(sunrise)}</span>
           {moonrise && <span className="opacity-80">{moonEmoji(moon_phase)} {fmtClock(moonrise)}</span>}
         </div>
-        <div className="flex items-center gap-1 self-center text-[10px]">
-          <span className="w-2 h-2 rounded-full" style={{ background: tempColor(minT) }} />
-          {fmtTemp(minT, 0)}
-          <span className="mx-1 opacity-50">→</span>
-          {fmtTemp(maxT, 0)}
-          <span className="w-2 h-2 rounded-full" style={{ background: tempColor(maxT) }} />
+        <div className="flex flex-col items-center self-center text-[10px] gap-0.5">
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full" style={{ background: tempColor(minT) }} />
+            {fmtTemp(minT, 0)}
+            <span className="mx-0.5 opacity-50">→</span>
+            {fmtTemp(maxT, 0)}
+            <span className="w-2 h-2 rounded-full" style={{ background: tempColor(maxT) }} />
+          </div>
+          <div className="text-[9px] text-slate-400">outer: temp · inner: AQI ({aqiScale.toUpperCase()})</div>
         </div>
         <div className="flex flex-col items-end gap-0.5">
           <span>{fmtClock(sunset)} 🌇</span>

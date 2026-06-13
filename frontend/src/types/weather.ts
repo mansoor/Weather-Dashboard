@@ -20,6 +20,7 @@ export interface WeatherReading {
   is_day: boolean
   aqi: number | null
   aqi_label: string | null
+  aqi_scale: 'us' | 'eu'
   pm25: number | null
   pm10: number | null
   co: number | null
@@ -121,6 +122,7 @@ export interface HourlyPoint {
   humidity: number | null
   dew_point: number | null
   uv_index: number | null
+  aqi: number | null
 }
 
 export interface DailyPoint {
@@ -144,6 +146,7 @@ export interface DayHourPoint {
   precipitation_probability: number | null
   is_day: boolean
   is_past: boolean      // true for hours earlier than the current local hour
+  aqi: number | null
 }
 
 export interface ForecastData {
@@ -157,4 +160,5 @@ export interface ForecastData {
   hourly: HourlyPoint[]
   daily: DailyPoint[]
   day_hourly: DayHourPoint[]
+  aqi_scale: 'us' | 'eu'
 }

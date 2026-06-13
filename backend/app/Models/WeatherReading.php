@@ -27,6 +27,7 @@ class WeatherReading extends Model
         'is_day',
         'aqi',
         'aqi_label',
+        'aqi_scale',
         'pm25',
         'pm10',
         'co',

@@ -368,7 +368,7 @@ export default function Dashboard() {
                   <>
                     <CurrentConditions reading={current} stats={stats} />
                     <AIRecommendations reading={current} forecast={forecast} />
-                    {forecast && <HourlyForecast hourly={forecast.hourly} timezone={forecast.timezone} />}
+                    {forecast && <HourlyForecast hourly={forecast.hourly} timezone={forecast.timezone} aqiScale={forecast.aqi_scale} />}
                     <MetricCards reading={current} />
                     <AirQuality reading={current} />
                     {forecast && (
@@ -382,6 +382,7 @@ export default function Dashboard() {
                           timezone={forecast.timezone}
                           dayHourly={forecast.day_hourly}
                           currentTemp={current?.temperature}
+                          aqiScale={forecast.aqi_scale}
                         />
                         <DailyForecast daily={forecast.daily} />
                       </div>
@@ -425,6 +426,7 @@ export default function Dashboard() {
                   onUpdate={loadData}
                   locations={user ? locations : []}
                   defaultLocation={displayLocation}
+                  aqiScale={forecast?.aqi_scale ?? 'eu'}
                 />
                 <AccountSettings />
                 {user?.is_admin && <AdminPanel />}

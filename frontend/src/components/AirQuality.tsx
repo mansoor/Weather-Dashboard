@@ -1,7 +1,7 @@
 'use client'
 
 import type { WeatherReading } from '@/types/weather'
-import { aqiColor, aqiBg, fmt } from '@/lib/utils'
+import { aqiHex, aqiLabel, fmt } from '@/lib/utils'
 import { Wind } from 'lucide-react'
 
 const pollutants = [
@@ -14,18 +14,23 @@ const pollutants = [
 
 export default function AirQuality({ reading }: { reading: WeatherReading }) {
   const hasAqi = reading.aqi !== null
+  const scale = reading.aqi_scale ?? 'eu'
+  const hex = aqiHex(reading.aqi, scale)
 
   return (
-    <div className={`glass rounded-xl p-5 ${hasAqi ? aqiBg(reading.aqi) : ''}`}>
+    <div className="glass rounded-xl p-5" style={hasAqi ? { backgroundColor: `${hex}14` } : undefined}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
           <Wind size={16} />
           Air Quality
+          {hasAqi && (
+            <span className="text-xs font-medium text-slate-400 uppercase">{scale} AQI</span>
+          )}
         </h2>
         {hasAqi && (
           <div className="flex items-center gap-2">
-            <span className={`text-2xl font-bold ${aqiColor(reading.aqi)}`}>{reading.aqi}</span>
-            <span className={`text-sm font-medium ${aqiColor(reading.aqi)}`}>{reading.aqi_label}</span>
+            <span className="text-2xl font-bold" style={{ color: hex }}>{reading.aqi}</span>
+            <span className="text-sm font-medium" style={{ color: hex }}>{reading.aqi_label ?? aqiLabel(reading.aqi, scale)}</span>
           </div>
         )}
       </div>
