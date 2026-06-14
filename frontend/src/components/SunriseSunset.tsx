@@ -271,6 +271,24 @@ export default function SunriseSunset({
   })()
   const timeStr = `${String(now.h).padStart(2, '0')}:${String(now.m).padStart(2, '0')}`
 
+  // Today's local calendar date (YYYY-MM-DD) for detecting a tomorrow hover.
+  const todayLocal = (() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone || undefined, year: 'numeric', month: '2-digit', day: 'numeric',
+      }).format(new Date())
+    } catch { return '' }
+  })()
+  // Format the date label from an hour's local ISO string (noon avoids day-shift).
+  const fmtDate = (iso: string) =>
+    new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      .format(new Date(iso.slice(0, 10) + 'T12:00:00'))
+
+  // When hovering, show the hovered hour's own date; otherwise today.
+  const hoverDate = hover != null && activeData?.time ? activeData.time.slice(0, 10) : null
+  const isOtherDay = hoverDate != null && hoverDate !== todayLocal
+  const hubDate = hoverDate ? fmtDate(activeData!.time) : dateStr
+
   // ── Analog clock hands (standard 12-hour) ──
   const secDeg  = now.s * 6
   const minDeg  = now.m * 6 + now.s * 0.1
@@ -396,6 +414,22 @@ export default function SunriseSunset({
             fontSize="7" fontWeight="500" fill="#94a3b8">{hourLabel(h).replace(' ', '')}</text>
         )})}
 
+        {/* ── "Tomorrow" wrap marker (rolling window crosses midnight) ── */}
+        {mode === 'next24' && (() => {
+          const [lx1, ly1] = P(R_AQI_IN, -0.5)        // midnight boundary, inner
+          const [lx2, ly2] = P(R_RING_OUT + 9, -0.5)  // midnight boundary, outer
+          const [tx, ty] = P(R_LABEL, 1.15)           // just into the tomorrow side
+          return (
+            <g>
+              <line x1={lx1} y1={ly1} x2={lx2} y2={ly2}
+                stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 2" />
+              <circle cx={lx2} cy={ly2} r="1.8" fill="#f59e0b" />
+              <text x={tx} y={ty} textAnchor="middle" dominantBaseline="middle"
+                fontSize="6.5" fontWeight="700" fill="#f59e0b">tomorrow ↻</text>
+            </g>
+          )
+        })()}
+
         {/* ── Earth globe ── */}
         <circle cx={C} cy={C} r={R_GLOBE} fill="url(#ocean)" />
         <g clipPath="url(#globeClip)">
@@ -495,7 +529,8 @@ export default function SunriseSunset({
         <g pointerEvents="none">
           <circle cx={C} cy={C} r="47" fill="#0f172a" opacity="0.84" />
           <circle cx={C} cy={C} r="47" fill="none" stroke="#334155" strokeWidth="1" />
-          <text x={C} y={C - 30} textAnchor="middle" fontSize="8" fill="#94a3b8">{dateStr}</text>
+          <text x={C} y={C - 30} textAnchor="middle" fontSize="8" fontWeight={isOtherDay ? 700 : 400}
+            fill={isOtherDay ? '#f59e0b' : '#94a3b8'}>{hubDate}</text>
           <text x={C} y={C - 18} textAnchor="middle" fontSize="9" fontWeight="600"
             fill={hover != null ? '#38bdf8' : '#e2e8f0'}>
             {hover != null ? `${hover === now.h ? 'Now · ' : ''}${hourLabel(activeHourInt)}` : timeStr}
