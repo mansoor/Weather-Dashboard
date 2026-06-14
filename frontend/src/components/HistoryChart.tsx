@@ -8,6 +8,7 @@ import {
 import { format, parseISO } from 'date-fns'
 import type { WeatherReading } from '@/types/weather'
 import { api } from '@/lib/api'
+import { useSettings } from '@/contexts/SettingsContext'
 
 type ChartMode = 'temperature' | 'wind' | 'precipitation' | 'aqi'
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function HistoryChart({ hours, location }: Props) {
+  const { convertTemp, unitLabel, convertWind, windLabel, convertPrecip, precipLabel } = useSettings()
   const [data, setData] = useState<WeatherReading[]>([])
   const [mode, setMode] = useState<ChartMode>('temperature')
   const [loading, setLoading] = useState(true)
@@ -32,14 +34,17 @@ export default function HistoryChart({ hours, location }: Props) {
   const num = (v: number | null | undefined) =>
     v != null && Number.isFinite(Number(v)) ? Number(v) : null
 
+  const round1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10)
+  const round2 = (v: number | null) => (v == null ? null : Math.round(v * 100) / 100)
+
   const chartData = data.map(r => ({
     time: format(parseISO(r.recorded_at), hours <= 24 ? 'HH:mm' : 'MMM d HH:mm'),
-    temperature: num(r.temperature),
-    feels_like: num(r.feels_like),
+    temperature: round1(convertTemp(num(r.temperature))),
+    feels_like: round1(convertTemp(num(r.feels_like))),
     humidity: num(r.humidity),
-    wind_speed: num(r.wind_speed),
-    wind_gusts: num(r.wind_gusts),
-    precipitation: num(r.precipitation),
+    wind_speed: round1(convertWind(num(r.wind_speed))),
+    wind_gusts: round1(convertWind(num(r.wind_gusts))),
+    precipitation: round2(convertPrecip(num(r.precipitation))),
     precipitation_probability: num(r.precipitation_probability),
     aqi: num(r.aqi),
   }))
@@ -54,7 +59,8 @@ export default function HistoryChart({ hours, location }: Props) {
     </div>
   )
 
-  const aqiScale = data.find(r => r.aqi_scale)?.aqi_scale ?? 'eu'
+  // Use the most recent reading's scale (data is ordered oldest → newest).
+  const aqiScale = data.at(-1)?.aqi_scale ?? 'eu'
   const aqiSeriesName = aqiScale === 'us' ? 'US AQI' : 'European AQI'
 
   const modes: { key: ChartMode; label: string }[] = [
@@ -97,21 +103,21 @@ export default function HistoryChart({ hours, location }: Props) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="time" tick={tickStyle} />
-              <YAxis tick={tickStyle} unit="°C" />
+              <YAxis tick={tickStyle} unit={unitLabel} />
               <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabel} />
               <Legend />
-              <Area type="monotone" dataKey="temperature" stroke="#f97316" fill="url(#tempGrad)" dot={false} name="Temperature (°C)" />
-              <Area type="monotone" dataKey="feels_like" stroke="#38bdf8" fill="url(#feelsGrad)" dot={false} name="Feels Like (°C)" />
+              <Area type="monotone" dataKey="temperature" stroke="#f97316" fill="url(#tempGrad)" dot={false} name={`Temperature (${unitLabel})`} />
+              <Area type="monotone" dataKey="feels_like" stroke="#38bdf8" fill="url(#feelsGrad)" dot={false} name={`Feels Like (${unitLabel})`} />
             </AreaChart>
           ) : mode === 'wind' ? (
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="time" tick={tickStyle} />
-              <YAxis tick={tickStyle} unit=" km/h" />
+              <YAxis tick={tickStyle} unit={` ${windLabel}`} />
               <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabel} />
               <Legend />
-              <Line type="monotone" dataKey="wind_speed" stroke="#22d3ee" dot={false} name="Wind Speed (km/h)" />
-              <Line type="monotone" dataKey="wind_gusts" stroke="#f43f5e" dot={false} strokeDasharray="5 3" name="Gusts (km/h)" />
+              <Line type="monotone" dataKey="wind_speed" stroke="#22d3ee" dot={false} name={`Wind Speed (${windLabel})`} />
+              <Line type="monotone" dataKey="wind_gusts" stroke="#f43f5e" dot={false} strokeDasharray="5 3" name={`Gusts (${windLabel})`} />
             </LineChart>
           ) : mode === 'precipitation' ? (
             <AreaChart data={chartData}>
@@ -123,11 +129,11 @@ export default function HistoryChart({ hours, location }: Props) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="time" tick={tickStyle} />
-              <YAxis yAxisId="mm" tick={tickStyle} unit=" mm" />
+              <YAxis yAxisId="mm" tick={tickStyle} unit={` ${precipLabel}`} />
               <YAxis yAxisId="pct" orientation="right" tick={tickStyle} unit="%" />
               <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabel} />
               <Legend />
-              <Area yAxisId="mm" type="monotone" dataKey="precipitation" stroke="#3b82f6" fill="url(#rainGrad)" dot={false} name="Precipitation (mm)" />
+              <Area yAxisId="mm" type="monotone" dataKey="precipitation" stroke="#3b82f6" fill="url(#rainGrad)" dot={false} name={`Precipitation (${precipLabel})`} />
               <Line yAxisId="pct" type="monotone" dataKey="precipitation_probability" stroke="#a78bfa" dot={false} name="Probability (%)" />
             </AreaChart>
           ) : (

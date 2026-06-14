@@ -5,6 +5,7 @@ import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star } from 'lucide-re
 import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult, ForecastData } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSettings } from '@/contexts/SettingsContext'
 import { loadGuestFavs, saveGuestFavs } from '@/components/FavoritesBar'
 import CurrentConditions from '@/components/CurrentConditions'
 import MetricCards from '@/components/MetricCards'
@@ -27,6 +28,20 @@ import AIRecommendations from '@/components/AIRecommendations'
 
 type ActiveLocation = { name: string; latitude: number; longitude: number; isDefault?: boolean }
 
+// IANA timezones where US customary units (mph, inches) are the norm.
+const US_TIMEZONES = new Set([
+  'America/New_York', 'America/Detroit', 'America/Chicago', 'America/Menominee',
+  'America/Denver', 'America/Boise', 'America/Phoenix', 'America/Los_Angeles',
+  'America/Anchorage', 'America/Juneau', 'America/Sitka', 'America/Metlakatla',
+  'America/Yakutat', 'America/Nome', 'America/Adak', 'Pacific/Honolulu',
+])
+function isUsTimezone(tz: string | null | undefined): boolean {
+  if (!tz) return false
+  return US_TIMEZONES.has(tz) ||
+    tz.startsWith('America/Indiana/') || tz.startsWith('America/Kentucky/') ||
+    tz.startsWith('America/North_Dakota/')
+}
+
 function useHeaderClock() {
   const [display, setDisplay] = useState({ time: '', date: '' })
   useEffect(() => {
@@ -46,6 +61,7 @@ function useHeaderClock() {
 
 export default function Dashboard() {
   const { user, locations, loading: authLoading, logout, addLocation, removeLocation } = useAuth()
+  const { setAutoSystem } = useSettings()
   const clock = useHeaderClock()
   const initialLoadDone = useRef(false)
 
@@ -159,6 +175,11 @@ export default function Dashboard() {
     const interval = setInterval(loadForecast, 600_000)
     return () => clearInterval(interval)
   }, [loadForecast])
+
+  // Derive the location's default measurement system (US → imperial) for "Auto" mode
+  useEffect(() => {
+    setAutoSystem(isUsTimezone(forecast?.timezone) ? 'imperial' : 'metric')
+  }, [forecast?.timezone, setAutoSystem])
 
   // Refresh immediately when the tab regains focus / becomes visible so the
   // data is never stale after the page has been in the background.

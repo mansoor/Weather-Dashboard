@@ -106,6 +106,7 @@ export interface UserLocation {
 
 export interface UserSettings {
   temp_unit: 'C' | 'F'
+  unit_system: 'auto' | 'metric' | 'imperial'
   theme: 'dark' | 'light'
   notification_urls: string | null
 }

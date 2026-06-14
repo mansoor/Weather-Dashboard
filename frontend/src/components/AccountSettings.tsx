@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { KeyRound, Bell, Save, Loader2, CheckCircle } from 'lucide-react'
+import { KeyRound, Bell, Save, Loader2, CheckCircle, Ruler } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSettings } from '@/contexts/SettingsContext'
 import { api } from '@/lib/api'
 
 export default function AccountSettings() {
   const { user, settings, updateSettings } = useAuth()
+  const { unit, toggleUnit, unitSystem, setUnitSystem, effectiveSystem, windLabel, precipLabel } = useSettings()
 
   // Password change state
   const [pwd, setPwd] = useState({ current_password: '', password: '', password_confirmation: '' })
@@ -55,8 +57,57 @@ export default function AccountSettings() {
 
   const inputCls = 'w-full input-base rounded-lg px-3 py-2.5 text-sm'
 
+  const segBtn = (active: boolean) =>
+    `px-3 py-1.5 text-sm rounded-md transition-colors ${
+      active ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm font-medium'
+             : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+    }`
+
   return (
     <div className="space-y-6 mt-6">
+      {/* Units */}
+      <div className="glass rounded-xl p-5">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-4">
+          <Ruler size={16} className="text-slate-500 dark:text-slate-400" />
+          Units
+        </h3>
+        <div className="space-y-4 max-w-md">
+          {/* Temperature */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Temperature</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Used across the dashboard</div>
+            </div>
+            <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 shrink-0">
+              {(['C', 'F'] as const).map(u => (
+                <button key={u} onClick={() => { if (unit !== u) toggleUnit() }} className={segBtn(unit === u)}>
+                  °{u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Wind & precipitation system */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Wind &amp; precipitation</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {unitSystem === 'auto'
+                  ? `Auto — using ${effectiveSystem} (${windLabel}, ${precipLabel}) for this location`
+                  : `${windLabel}, ${precipLabel}`}
+              </div>
+            </div>
+            <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 shrink-0">
+              {([['auto', 'Auto'], ['metric', 'Metric'], ['imperial', 'Imperial']] as const).map(([v, l]) => (
+                <button key={v} onClick={() => setUnitSystem(v)} className={segBtn(unitSystem === v)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Change Password */}
       <div className="glass rounded-xl p-5">
         <h3 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-4">

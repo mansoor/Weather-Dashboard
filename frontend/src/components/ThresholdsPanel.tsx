@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocation, aqiScale = 'eu' }: Props) {
-  const { unit, convertTemp, convertToC, unitLabel } = useSettings()
+  const { unit, convertTemp, convertToC, unitLabel, convertWind, windToBase, windLabel } = useSettings()
   const [thresholds, setThresholds] = useState<AlertThreshold[]>([])
   const [saving, setSaving] = useState<number | null>(null)
   const [savingLoc, setSavingLoc] = useState(false)
@@ -95,18 +95,24 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
     : storedLat !== null  // "All locations" selected but DB has a specific location
 
   const isTempThreshold = (t: AlertThreshold) => t.unit === '°C'
+  const isWindThreshold = (t: AlertThreshold) => t.unit === 'km/h'
 
   const displayValue = (t: AlertThreshold): number => {
     const storedValue = (edits[t.id]?.value as number | undefined) ?? t.value
     if (isTempThreshold(t)) {
       return Number((convertTemp(storedValue) ?? storedValue).toFixed(1))
     }
+    if (isWindThreshold(t)) {
+      return Number((convertWind(storedValue) ?? storedValue).toFixed(1))
+    }
     return storedValue
   }
 
   const edit = (t: AlertThreshold, rawInput: number) => {
-    const valueInC = isTempThreshold(t) ? convertToC(rawInput) : rawInput
-    setEdits(prev => ({ ...prev, [t.id]: { ...(prev[t.id] || {}), value: valueInC } }))
+    const valueInBase = isTempThreshold(t) ? convertToC(rawInput)
+      : isWindThreshold(t) ? windToBase(rawInput)
+      : rawInput
+    setEdits(prev => ({ ...prev, [t.id]: { ...(prev[t.id] || {}), value: valueInBase } }))
   }
 
   const editNonValue = (id: number, patch: Partial<AlertThreshold>) => {
@@ -231,7 +237,7 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
                       className={`w-20 ${inputCls}`}
                     />
                     <span className="text-slate-500 text-xs">
-                      {isTempThreshold(t) ? unitLabel : (t.unit ?? '')}
+                      {isTempThreshold(t) ? unitLabel : isWindThreshold(t) ? windLabel : (t.unit ?? '')}
                       {t.metric === 'aqi' && ` (${aqiScale.toUpperCase()})`}
                     </span>
                   </div>
@@ -283,7 +289,7 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
       </div>
 
       <p className="text-slate-500 text-xs">
-        Temperature thresholds are shown in {unitLabel} and converted automatically on save.
+        Temperature ({unitLabel}) and wind ({windLabel}) thresholds are shown in your chosen units and converted automatically on save.
         Enable "Email" to receive email notifications (requires MAIL_* config).
       </p>
     </div>

@@ -30,7 +30,11 @@ function useLocalClock(timezone: string | null) {
 }
 
 export default function CurrentConditions({ reading, stats }: { reading: WeatherReading; stats: WeatherStats | null }) {
-  const { fmtTemp } = useSettings()
+  const { fmtTemp, fmtWind, effectiveSystem } = useSettings()
+  const imperial = effectiveSystem === 'imperial'
+  const visKm = reading.visibility != null ? Number(reading.visibility) / 1000 : null
+  const visStr = visKm == null ? '—'
+    : imperial ? `${(visKm * 0.621371).toFixed(1)} mi` : `${visKm.toFixed(1)} km`
   const emoji = weatherEmoji(reading.weather_code, reading.is_day)
   const { time, date } = useLocalClock(reading.timezone)
 
@@ -57,8 +61,8 @@ export default function CurrentConditions({ reading, stats }: { reading: Weather
         {/* Stat pills */}
         <div className="flex flex-wrap gap-4">
           <StatPill icon={<Droplets size={14} />} label="Humidity" value={`${fmt(reading.humidity, 0)}%`} />
-          <StatPill icon={<Wind size={14} />} label="Wind" value={`${fmt(reading.wind_speed, 1)} km/h ${windDirection(reading.wind_direction)}`} />
-          <StatPill icon={<Eye size={14} />} label="Visibility" value={`${fmt(reading.visibility != null ? Number(reading.visibility) / 1000 : null, 1)} km`} />
+          <StatPill icon={<Wind size={14} />} label="Wind" value={`${fmtWind(reading.wind_speed, 1)} ${windDirection(reading.wind_direction)}`} />
+          <StatPill icon={<Eye size={14} />} label="Visibility" value={visStr} />
           {stats && (
             <>
               <StatPill icon={<ArrowUp size={14} className="text-red-400" />} label="High" value={fmtTemp(stats.temp_max, 1)} />

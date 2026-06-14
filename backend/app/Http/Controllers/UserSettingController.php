@@ -10,12 +10,12 @@ class UserSettingController extends Controller
 {
     private function defaults(): array
     {
-        return ['user_id' => null, 'temp_unit' => 'C', 'theme' => 'dark', 'notification_urls' => null];
+        return ['user_id' => null, 'temp_unit' => 'C', 'unit_system' => 'auto', 'theme' => 'dark', 'notification_urls' => null];
     }
 
     private function settingsFields(UserSetting $settings): array
     {
-        return $settings->only(['temp_unit', 'theme', 'notification_urls']);
+        return $settings->only(['temp_unit', 'unit_system', 'theme', 'notification_urls']);
     }
 
     public function show(Request $request): JsonResponse
@@ -30,6 +30,7 @@ class UserSettingController extends Controller
     {
         $validated = $request->validate([
             'temp_unit'         => 'sometimes|in:C,F',
+            'unit_system'       => 'sometimes|in:auto,metric,imperial',
             'theme'             => 'sometimes|in:dark,light',
             'notification_urls' => 'sometimes|nullable|string|max:10000',
         ]);

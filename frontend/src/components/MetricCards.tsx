@@ -6,17 +6,17 @@ import { useSettings } from '@/contexts/SettingsContext'
 import { Wind, Umbrella, Cloud, Sun, Gauge, Zap } from 'lucide-react'
 
 export default function MetricCards({ reading }: { reading: WeatherReading }) {
-  const { fmtTemp } = useSettings()
+  const { fmtWind, fmtPrecip } = useSettings()
 
   const cards = [
     {
       key: 'wind', label: 'Wind', icon: Wind, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 border-l-2 border-l-cyan-400 dark:bg-cyan-900/20 dark:border-l-cyan-700',
-      main: `${fmt(reading.wind_speed, 1)} km/h`,
-      sub: reading.wind_gusts != null ? `Gusts ${fmt(reading.wind_gusts, 1)} km/h` : 'No gust data',
+      main: fmtWind(reading.wind_speed, 1),
+      sub: reading.wind_gusts != null ? `Gusts ${fmtWind(reading.wind_gusts, 1)}` : 'No gust data',
     },
     {
       key: 'rain', label: 'Precipitation', icon: Umbrella, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 border-l-2 border-l-blue-400 dark:bg-blue-900/20 dark:border-l-blue-700',
-      main: `${fmt(reading.precipitation, 1)} mm`,
+      main: fmtPrecip(reading.precipitation),
       sub: reading.precipitation_probability != null ? `${fmt(reading.precipitation_probability, 0)}% probability` : '—',
     },
     {

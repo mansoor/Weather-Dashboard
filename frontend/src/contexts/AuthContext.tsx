@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     locations: [],
-    settings: { temp_unit: 'C', theme: 'dark', notification_urls: null },
+    settings: { temp_unit: 'C', unit_system: 'auto', theme: 'dark', notification_urls: null },
     token: null,
     loading: true,
   })
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       user: payload.user,
       token: payload.token,
-      settings: payload.settings ?? { temp_unit: 'C' },
+      settings: payload.settings ?? { temp_unit: 'C', unit_system: 'auto', theme: 'dark', notification_urls: null },
       locations: payload.locations ?? [],
       loading: false,
     }))
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     api.auth.logout().catch(() => {})
     localStorage.removeItem('auth_token')
-    setState(prev => ({ ...prev, user: null, token: null, locations: [], settings: { temp_unit: 'C', theme: 'dark', notification_urls: null } }))
+    setState(prev => ({ ...prev, user: null, token: null, locations: [], settings: { temp_unit: 'C', unit_system: 'auto', theme: 'dark', notification_urls: null } }))
   }, [])
 
   const refreshLocations = useCallback(async () => {

@@ -15,7 +15,7 @@ function dayLabel(dateStr: string, index: number): string {
 }
 
 export default function DailyForecast({ daily }: Props) {
-  const { fmtTemp, convertTemp } = useSettings()
+  const { fmtTemp, convertTemp, fmtWind } = useSettings()
 
   if (!daily.length) return null
 
@@ -81,7 +81,7 @@ export default function DailyForecast({ daily }: Props) {
 
               {/* Wind */}
               <span className="text-xs text-slate-400 dark:text-slate-500 w-16 text-right shrink-0 hidden md:block">
-                {d.wind_speed_max != null ? `${Math.round(d.wind_speed_max)} km/h` : '—'}
+                {d.wind_speed_max != null ? fmtWind(d.wind_speed_max, 0) : '—'}
               </span>
             </div>
           )
