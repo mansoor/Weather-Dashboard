@@ -3,9 +3,12 @@
 use App\Jobs\FetchWeatherJob;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::job(FetchWeatherJob::class)->everyFifteenMinutes()->name('fetch-weather');
+// Pull weather (default + user-favorited locations), evaluate alerts and store
+// to the DB on a configurable cadence. WEATHER_FETCH_INTERVAL is the number of
+// minutes between fetches (default 15).
+$interval = max(1, (int) config('weather.fetch_interval_minutes', 15));
 
-Schedule::command('weather:fetch --sync')
-    ->everyFifteenMinutes()
-    ->withoutOverlapping()
-    ->runInBackground();
+Schedule::job(FetchWeatherJob::class)
+    ->cron("*/{$interval} * * * *")
+    ->name('fetch-weather')
+    ->withoutOverlapping();
