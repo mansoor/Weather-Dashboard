@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { DayHourPoint } from '@/types/weather'
+import type { DayHourPoint, HourlyPoint } from '@/types/weather'
 import { weatherEmoji, aqiHex, aqiLabel } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
@@ -116,7 +116,24 @@ function skyFor(code: number | null, day: boolean): Sky {
   return { cat: 'clear', bg: day ? '#7dc4f5' : '#0b1733', halo: '#fcd34d' }
 }
 
+// Build a 24-entry, hour-of-day-keyed dataset from the rolling next-24-hours
+// forecast so the dial can render "Next 24 Hours" the same way it renders "Today".
+function rollingDay(hourly: HourlyPoint[]): DayHourPoint[] {
+  return hourly.slice(0, 24).map(h => ({
+    hour: parseInt(h.time.slice(11, 13)),
+    time: h.time,
+    temperature: h.temperature,
+    weather_code: h.weather_code,
+    precipitation_probability: h.precipitation_probability,
+    is_day: h.is_day,
+    is_past: false,        // a rolling window is entirely upcoming forecast
+    aqi: h.aqi,
+  }))
+}
+
 // ── Component ─────────────────────────────────────────────────
+type ClockMode = 'today' | 'next24'
+
 interface Props {
   sunrise: string | null
   sunset: string | null
@@ -125,16 +142,18 @@ interface Props {
   moon_phase?: number | null
   timezone: string | null
   dayHourly: DayHourPoint[]
+  hourly?: HourlyPoint[]
   currentTemp?: number | null
   aqiScale?: 'us' | 'eu'
 }
 
 export default function SunriseSunset({
-  sunrise, sunset, moonrise, moonset, moon_phase, timezone, dayHourly, currentTemp, aqiScale = 'eu',
+  sunrise, sunset, moonrise, moonset, moon_phase, timezone, dayHourly, hourly = [], currentTemp, aqiScale = 'eu',
 }: Props) {
   const { fmtTemp } = useSettings()
   const [now, setNow] = useState(() => tzParts(timezone))
   const [hover, setHover] = useState<number | null>(null)
+  const [mode, setMode] = useState<ClockMode>('today')
 
   // Live ticking — drives the second hand and the sun position.
   useEffect(() => {
@@ -149,8 +168,10 @@ export default function SunriseSunset({
   const msH  = parseHourFloat(moonset)
   const isDay = srH != null && ssH != null && nowH >= srH && nowH <= ssH
 
-  const byHour = new Map(dayHourly.map(d => [d.hour, d]))
-  const temps = dayHourly.map(d => d.temperature).filter((t): t is number => t != null)
+  // Rings/hub data: calendar day ("today") or rolling next-24h ("next24").
+  const ringData = mode === 'next24' && hourly.length ? rollingDay(hourly) : dayHourly
+  const byHour = new Map(ringData.map(d => [d.hour, d]))
+  const temps = ringData.map(d => d.temperature).filter((t): t is number => t != null)
   const minT = temps.length ? Math.min(...temps) : 0
   const maxT = temps.length ? Math.max(...temps) : 30
 
@@ -275,9 +296,28 @@ export default function SunriseSunset({
 
   return (
     <div className="glass rounded-xl p-4">
-      <div className="flex items-center justify-between mb-1">
-        <h2 className="font-semibold text-slate-800 dark:text-slate-200">24-Hour Geo-Clock</h2>
-        <span className="text-xs text-slate-400">{isDay ? '☀️ Day' : '🌙 Night'}</span>
+      <div className="flex items-center justify-between mb-1 gap-2">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-200 shrink-0">24-Hour Geo-Clock</h2>
+
+        {/* Today / Next-24h toggle */}
+        <div className="inline-flex rounded-full bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-medium shrink-0">
+          {([['today', 'Today'], ['next24', 'Next 24 Hours']] as const).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              disabled={m === 'next24' && !hourly.length}
+              className={`px-2.5 py-1 rounded-full transition-colors disabled:opacity-40 ${
+                mode === m
+                  ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-xs text-slate-400 shrink-0 hidden sm:inline">{isDay ? '☀️ Day' : '🌙 Night'}</span>
       </div>
 
       <svg viewBox="0 0 360 360" className="w-full max-w-sm mx-auto select-none"

@@ -414,6 +414,7 @@ export default function Dashboard() {
                           moon_phase={forecast.moon_phase}
                           timezone={forecast.timezone}
                           dayHourly={forecast.day_hourly}
+                          hourly={forecast.hourly}
                           currentTemp={current?.temperature}
                           aqiScale={forecast.aqi_scale}
                         />
