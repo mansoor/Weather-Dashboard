@@ -78,6 +78,7 @@ export const api = {
   },
   geocoding: {
     search: (q: string) => get('/geocoding/search', { q }),
+    reverse: (lat: number, lon: number) => get('/geocoding/reverse', { lat, lon }),
   },
   auth: {
     register: (data: { name: string; email: string; password: string; password_confirmation: string }) =>

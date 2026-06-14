@@ -34,4 +34,37 @@ class GeocodingController extends Controller
             return response()->json([]);
         }
     }
+
+    /** Reverse geocode a lat/lon to a human-readable place (city) name. */
+    public function reverse(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'lat' => 'required|numeric|between:-90,90',
+            'lon' => 'required|numeric|between:-180,180',
+        ]);
+
+        try {
+            $client = new Client(['timeout' => 8]);
+            // BigDataCloud's reverse-geocode-client is free and requires no API key.
+            $response = $client->get('https://api.bigdatacloud.net/data/reverse-geocode-client', [
+                'query' => [
+                    'latitude' => $validated['lat'],
+                    'longitude' => $validated['lon'],
+                    'localityLanguage' => 'en',
+                ],
+            ]);
+
+            $d = json_decode($response->getBody()->getContents(), true);
+            $name = ($d['city'] ?? '') ?: (($d['locality'] ?? '') ?: ($d['principalSubdivision'] ?? null));
+
+            return response()->json([
+                'name' => $name ?: null,
+                'admin1' => $d['principalSubdivision'] ?? null,
+                'country' => $d['countryName'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Reverse geocoding failed: '.$e->getMessage());
+            return response()->json(['name' => null]);
+        }
+    }
 }

@@ -124,12 +124,16 @@ export default function Dashboard() {
 
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc: ActiveLocation = {
-            name: 'My Location',
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          }
+        async (pos) => {
+          const latitude = pos.coords.latitude
+          const longitude = pos.coords.longitude
+          // Resolve the actual city name instead of a generic "My Location".
+          let name = 'My Location'
+          try {
+            const r = await api.geocoding.reverse(latitude, longitude) as { name?: string | null }
+            if (r?.name) name = r.name
+          } catch { /* keep fallback */ }
+          const loc: ActiveLocation = { name, latitude, longitude }
           setActiveLocation(loc)
           setLoading(true)
           loadLiveData(loc)
@@ -254,36 +258,10 @@ export default function Dashboard() {
         {/* ── Row 1: logo + location + save | search | clock + theme + user ── */}
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
 
-          {/* Left: logo, location name, save/reset */}
+          {/* Left: logo */}
           <div className="flex items-center gap-2 min-w-0 shrink-0">
             <span className="text-2xl shrink-0">🌤️</span>
             <span className="font-semibold text-slate-800 dark:text-slate-100 hidden sm:block shrink-0">Weather</span>
-            {displayLocation && (
-              <>
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-                <MapPin size={12} className="text-slate-500 dark:text-slate-400 shrink-0" />
-                <span className="text-slate-600 dark:text-slate-300 text-sm truncate max-w-[140px]">
-                  {displayLocation.name}
-                </span>
-                {/* Save / unsave current location */}
-                <button
-                  onClick={toggleSave}
-                  title={isSaved ? 'Remove from saved' : 'Save location'}
-                  className={`p-1 rounded transition-colors shrink-0 ${
-                    isSaved
-                      ? 'text-yellow-400 hover:text-yellow-500'
-                      : 'text-slate-400 hover:text-yellow-400'
-                  }`}
-                >
-                  <Star size={14} fill={isSaved ? 'currentColor' : 'none'} />
-                </button>
-                {activeLocation && (
-                  <button onClick={handleReturnToDefault} className="text-xs text-sky-500 hover:underline shrink-0">
-                    reset
-                  </button>
-                )}
-              </>
-            )}
           </div>
 
           {/* Center: location search */}
@@ -332,10 +310,33 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* ── Row 3: nav tabs (center) | unit toggle + fetch (right) ── */}
+        {/* ── Row 3: location (left) | nav tabs (center) | unit toggle + fetch (right) ── */}
         <div className="max-w-7xl mx-auto px-4 pt-1 pb-2 border-t border-slate-200 dark:border-slate-800/60 flex items-center">
-          {/* Left spacer = same width as right controls to keep tabs centered */}
-          <div className="flex-1" />
+          {/* Left: current location — prominent */}
+          <div className="flex-1 flex items-center min-w-0">
+            {displayLocation && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MapPin size={18} className="text-sky-500 shrink-0" />
+                <span className="font-semibold text-base sm:text-lg text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[220px]">
+                  {displayLocation.name}
+                </span>
+                <button
+                  onClick={toggleSave}
+                  title={isSaved ? 'Remove from saved' : 'Save location'}
+                  className={`p-1 rounded transition-colors shrink-0 ${
+                    isSaved ? 'text-yellow-400 hover:text-yellow-500' : 'text-slate-400 hover:text-yellow-400'
+                  }`}
+                >
+                  <Star size={16} fill={isSaved ? 'currentColor' : 'none'} />
+                </button>
+                {activeLocation && (
+                  <button onClick={handleReturnToDefault} className="text-xs text-sky-500 hover:underline shrink-0">
+                    reset
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           <nav className="flex items-center gap-1">
             {(['dashboard', 'alerts', 'settings'] as const).map(tab => (

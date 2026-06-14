@@ -41,6 +41,7 @@ Route::get('/weather/forecast', [ForecastController::class, 'index']);
 
 // Geocoding
 Route::get('/geocoding/search', [GeocodingController::class, 'search']);
+Route::get('/geocoding/reverse', [GeocodingController::class, 'reverse']);
 
 // Auth
 Route::prefix('auth')->group(function () {
