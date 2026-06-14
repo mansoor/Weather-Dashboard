@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<WeatherAlert[]>([])
   const [stats, setStats] = useState<WeatherStats | null>(null)
   const [forecast, setForecast] = useState<ForecastData | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetching, setFetching] = useState(false)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'settings'>('dashboard')
@@ -104,7 +105,17 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     if (activeLocation) await loadLiveData(activeLocation)
     else await loadDefaultData()
+    setLastUpdated(new Date())
   }, [activeLocation, loadDefaultData, loadLiveData])
+
+  const loadForecast = useCallback(async () => {
+    try {
+      const d = await api.forecast.get(activeLocation?.latitude, activeLocation?.longitude)
+      setForecast(d as ForecastData)
+    } catch {
+      setForecast(null)
+    }
+  }, [activeLocation?.latitude, activeLocation?.longitude])
 
   // Initial load: try geolocation first, fall back to configured default
   useEffect(() => {
@@ -138,14 +149,30 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [loadData, authLoading])
 
-  // Fetch forecast whenever active location changes
+  // Fetch forecast on location change and refresh it every 10 min
   useEffect(() => {
-    const lat = activeLocation?.latitude
-    const lon = activeLocation?.longitude
-    api.forecast.get(lat, lon)
-      .then(d => setForecast(d as ForecastData))
-      .catch(() => setForecast(null))
-  }, [activeLocation?.latitude, activeLocation?.longitude])
+    loadForecast()
+    const interval = setInterval(loadForecast, 600_000)
+    return () => clearInterval(interval)
+  }, [loadForecast])
+
+  // Refresh immediately when the tab regains focus / becomes visible so the
+  // data is never stale after the page has been in the background.
+  useEffect(() => {
+    if (authLoading) return
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+        loadForecast()
+      }
+    }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [authLoading, loadData, loadForecast])
 
   const handleLocationSelect = (result: GeoResult | ActiveLocation) => {
     const loc: ActiveLocation = {
@@ -337,6 +364,12 @@ export default function Dashboard() {
           </nav>
 
           <div className="flex-1 flex items-center justify-end gap-2">
+            {lastUpdated && (
+              <span className="hidden md:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 mr-1" title="Auto-refreshes every minute">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Updated {lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             <UnitToggle />
             <button
               onClick={triggerFetch}
