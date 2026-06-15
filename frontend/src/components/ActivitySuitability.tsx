@@ -8,6 +8,16 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const pref = (v: number, a: number, b: number, pad: number) =>
   v >= a && v <= b ? 1 : v < a ? clamp01(1 - (a - v) / pad) : clamp01(1 - (v - b) / pad)
 
+/** Current hour (0–23) at the location. */
+function localHour(tz: string | null): number {
+  try {
+    const h = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz || undefined, hour: 'numeric', hour12: false }).format(new Date()))
+    return h === 24 ? 0 : h
+  } catch {
+    return new Date().getHours()
+  }
+}
+
 interface Activity {
   key: string
   emoji: string
@@ -39,28 +49,35 @@ function scoreActivities(reading: WeatherReading): Activity[] {
   const stormF = isStorm ? 0.05 : 1
   const pct = (x: number) => Math.round(clamp01(x) * 100)
 
+  // Time-of-day factor: 1 within an activity's sensible hours, else 0.5 — enough
+  // to drop a weather-perfect activity into the "okay" (yellow) band rather than
+  // recommending it outright (e.g. gardening at 3 AM).
+  const hour = localHour(reading.timezone)
+  const timeF = (start: number, end: number) => (hour >= start && hour <= end ? 1 : 0.5)
+
   const list: Activity[] = [
-    { key: 'run',    emoji: '🏃', label: 'Run',    score: pct(pref(t, 4, 20, 13) * rainF(55) * windF(28) * aqiF * stormF) },
-    { key: 'bike',   emoji: '🚴', label: 'Bike',   score: pct(pref(t, 8, 26, 12) * rainF(45) * windF(22) * aqiF * stormF) },
-    { key: 'hike',   emoji: '🥾', label: 'Hike',   score: pct(pref(t, 6, 24, 13) * rainF(55) * windF(38) * aqiF * stormF * (isSnow ? 0.6 : 1)) },
-    { key: 'golf',   emoji: '⛳', label: 'Golf',   score: pct(pref(t, 12, 30, 10) * rainF(38) * windF(22) * aqiF * stormF) },
-    { key: 'picnic', emoji: '🧺', label: 'Picnic', score: pct(pref(t, 16, 28, 8) * rainF(35) * windF(20) * aqiF * stormF * (isClear ? 1 : 0.85)) },
-    { key: 'walk',   emoji: '🚶', label: 'Walk',   score: pct(pref(t, 2, 28, 14) * rainF(75) * windF(40) * stormF * (0.6 + 0.4 * aqiF)) },
-    { key: 'garden', emoji: '🌱', label: 'Garden', score: pct(pref(t, 8, 28, 12) * rainF(50) * windF(28) * aqiF * stormF) },
-    { key: 'fish',   emoji: '🎣', label: 'Fish',   score: pct(pref(t, 6, 30, 12) * rainF(60) * windF(20) * stormF) },
+    { key: 'run',    emoji: '🏃', label: 'Run',    score: pct(pref(t, 4, 20, 13) * rainF(55) * windF(28) * aqiF * stormF * timeF(5, 21)) },
+    { key: 'bike',   emoji: '🚴', label: 'Bike',   score: pct(pref(t, 8, 26, 12) * rainF(45) * windF(22) * aqiF * stormF * timeF(6, 20)) },
+    { key: 'hike',   emoji: '🥾', label: 'Hike',   score: pct(pref(t, 6, 24, 13) * rainF(55) * windF(38) * aqiF * stormF * (isSnow ? 0.6 : 1) * timeF(6, 18)) },
+    { key: 'golf',   emoji: '⛳', label: 'Golf',   score: pct(pref(t, 12, 30, 10) * rainF(38) * windF(22) * aqiF * stormF * timeF(7, 19)) },
+    { key: 'picnic', emoji: '🧺', label: 'Picnic', score: pct(pref(t, 16, 28, 8) * rainF(35) * windF(20) * aqiF * stormF * (isClear ? 1 : 0.85) * timeF(10, 19)) },
+    { key: 'walk',   emoji: '🚶', label: 'Walk',   score: pct(pref(t, 2, 28, 14) * rainF(75) * windF(40) * stormF * (0.6 + 0.4 * aqiF) * timeF(5, 22)) },
+    { key: 'garden', emoji: '🌱', label: 'Garden', score: pct(pref(t, 8, 28, 12) * rainF(50) * windF(28) * aqiF * stormF * timeF(7, 19)) },
+    { key: 'fish',   emoji: '🎣', label: 'Fish',   score: pct(pref(t, 6, 30, 12) * rainF(60) * windF(20) * stormF * timeF(4, 21)) },
     // Kite flying likes a breeze — too calm and too gusty both score low.
-    { key: 'kite',   emoji: '🪁', label: 'Kite',   score: pct(pref(wind, 12, 32, 12) * pref(t, 5, 32, 12) * rainF(40) * stormF) },
+    { key: 'kite',   emoji: '🪁', label: 'Kite',   score: pct(pref(wind, 12, 32, 12) * pref(t, 5, 32, 12) * rainF(40) * stormF * timeF(8, 19)) },
   ]
 
   // Context-gated activities — only shown when they're actually relevant.
   if (t >= 20) {
-    list.push({ key: 'swim',  emoji: '🏊', label: 'Swim',  score: pct(pref(t, 25, 35, 6) * rainF(45) * stormF * (isClear ? 1 : 0.85)) })
-    list.push({ key: 'beach', emoji: '🏖️', label: 'Beach', score: pct(pref(t, 24, 34, 6) * rainF(40) * stormF * (isClear ? 1 : 0.8)) })
+    list.push({ key: 'swim',  emoji: '🏊', label: 'Swim',  score: pct(pref(t, 25, 35, 6) * rainF(45) * stormF * (isClear ? 1 : 0.85) * timeF(8, 20)) })
+    list.push({ key: 'beach', emoji: '🏖️', label: 'Beach', score: pct(pref(t, 24, 34, 6) * rainF(40) * stormF * (isClear ? 1 : 0.8) * timeF(9, 19)) })
   }
   if (t <= 8) {
-    list.push({ key: 'ski', emoji: '⛷️', label: 'Ski', score: pct((isSnow ? 1 : 0.45) * pref(t, -15, 1, 7) * windF(30) * stormF) })
+    list.push({ key: 'ski', emoji: '⛷️', label: 'Ski', score: pct((isSnow ? 1 : 0.45) * pref(t, -15, 1, 7) * windF(30) * stormF * timeF(8, 16)) })
   }
   if (!isDay) {
+    // Stargazing is inherently a night activity — no daytime-hours penalty.
     list.push({ key: 'stars', emoji: '🔭', label: 'Stars', score: pct(clearSky * rainF(25) * windF(45) * stormF) })
   }
 
