@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\ShareController;
 use App\Http\Controllers\ThresholdController;
 use App\Http\Controllers\UserLocationController;
 use App\Http\Controllers\UserPasswordController;
@@ -72,6 +73,12 @@ Route::middleware('auth:sanctum')->prefix('user')->group(function () {
     Route::delete('/locations/{id}', [UserLocationController::class, 'destroy']);
 });
 
+// Location sharing (registered users only — prevents guest spam)
+Route::middleware('auth:sanctum')->prefix('share')->group(function () {
+    Route::get('/limits', [ShareController::class, 'limits']);
+    Route::post('/location', [ShareController::class, 'store']);
+});
+
 // Password reset (public)
 Route::post('/auth/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/auth/reset-password', [ResetPasswordController::class, 'reset']);
@@ -81,6 +88,8 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
     Route::get('/users', [AdminController::class, 'users']);
     Route::patch('/users/{id}', [AdminController::class, 'updateUser']);
     Route::post('/users/{id}/send-reset', [AdminController::class, 'sendResetLink']);
+    Route::get('/settings', [AdminController::class, 'settings']);
+    Route::patch('/settings', [AdminController::class, 'updateSettings']);
 });
 
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'time' => now()]));

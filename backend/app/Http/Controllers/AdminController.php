@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,5 +64,30 @@ class AdminController extends Controller
         $user = User::findOrFail($id);
         Password::sendResetLink(['email' => $user->email]);
         return response()->json(['message' => 'Password reset email sent to ' . $user->email]);
+    }
+
+    /** Application-level settings (share anti-spam limits, etc.). */
+    public function settings(): JsonResponse
+    {
+        return response()->json([
+            'share_max_recipients'        => AppSetting::getInt('share_max_recipients', 5),
+            'share_max_per_day'           => AppSetting::getInt('share_max_per_day', 20),
+            'share_max_per_email_per_day' => AppSetting::getInt('share_max_per_email_per_day', 3),
+        ]);
+    }
+
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'share_max_recipients'        => 'sometimes|integer|min:1|max:50',
+            'share_max_per_day'           => 'sometimes|integer|min:1|max:1000',
+            'share_max_per_email_per_day' => 'sometimes|integer|min:1|max:100',
+        ]);
+
+        foreach ($validated as $key => $value) {
+            AppSetting::put($key, (string) $value);
+        }
+
+        return $this->settings();
     }
 }

@@ -9,7 +9,8 @@ async function request<T>(method: string, path: string, body?: unknown, params?:
   const url = new URL(`${BASE}${path}`, window.location.origin)
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)))
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  // Accept JSON so Laravel returns 401/422 JSON (not HTML redirects) on auth/validation errors.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Accept': 'application/json' }
   const token = getToken()
   if (token) headers['Authorization'] = `Bearer ${token}`
 
@@ -97,6 +98,14 @@ export const api = {
     updateUser: (id: number, data: Partial<{ name: string; email: string; password: string; is_admin: boolean }>) =>
       patch(`/admin/users/${id}`, data),
     sendReset: (id: number) => post(`/admin/users/${id}/send-reset`),
+    getSettings: () => get('/admin/settings'),
+    updateSettings: (data: Partial<{ share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number }>) =>
+      patch('/admin/settings', data),
+  },
+  share: {
+    limits: () => get('/share/limits'),
+    location: (data: { latitude: number; longitude: number; name: string; emails: string[] }) =>
+      post('/share/location', data),
   },
   user: {
     getSettings: () => get('/user/settings'),

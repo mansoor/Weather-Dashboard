@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle, Edit2, Mail, RefreshCw, Save, Shield, X } from 'lucide-react'
+import { CheckCircle, Edit2, Mail, RefreshCw, Save, Shield, X, Share2 } from 'lucide-react'
 import type { AdminUser } from '@/types/weather'
 import { api } from '@/lib/api'
 
@@ -22,6 +22,10 @@ export default function AdminPanel() {
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  type ShareSettings = { share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number }
+  const [settings, setSettings] = useState<ShareSettings | null>(null)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+
   const load = async () => {
     setLoading(true)
     try {
@@ -33,6 +37,24 @@ export default function AdminPanel() {
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    api.admin.getSettings().then(d => setSettings(d as ShareSettings)).catch(() => {})
+  }, [])
+
+  const saveSettings = async () => {
+    if (!settings) return
+    setSettingsSaving(true)
+    try {
+      const updated = await api.admin.updateSettings(settings) as ShareSettings
+      setSettings(updated)
+      showToast('Share limits updated')
+    } catch {
+      showToast('Failed to update share limits')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -84,8 +106,45 @@ export default function AdminPanel() {
 
   const inputCls = 'bg-white border border-slate-300 dark:bg-slate-700 dark:border-slate-600 rounded px-2 py-1 text-slate-900 dark:text-slate-200 text-sm focus:outline-none focus:border-sky-500 w-full'
 
+  const settingFields: { key: keyof ShareSettings; label: string; hint: string }[] = [
+    { key: 'share_max_recipients', label: 'Max recipients per share', hint: 'emails in one share' },
+    { key: 'share_max_per_day', label: 'Max shares per user / day', hint: 'total sends daily' },
+    { key: 'share_max_per_email_per_day', label: 'Max per email / user / day', hint: 'to one address daily' },
+  ]
+
   return (
     <div className="space-y-4 mt-6">
+      {/* Share anti-spam settings */}
+      <div className="glass rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Share2 size={16} className="text-sky-500" />
+          <h2 className="font-semibold text-slate-800 dark:text-slate-200">Location Sharing Limits</h2>
+          <span className="text-xs text-slate-500 ml-1">— anti-spam</span>
+        </div>
+        {settings ? (
+          <div className="flex flex-wrap items-end gap-4">
+            {settingFields.map(f => (
+              <div key={f.key}>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
+                <input
+                  type="number" min={1}
+                  value={settings[f.key]}
+                  onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
+                  className={`w-28 ${inputCls}`}
+                />
+                <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
+              </div>
+            ))}
+            <button onClick={saveSettings} disabled={settingsSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+              <Save size={13} /> {settingsSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Loading…</p>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield size={16} className="text-amber-500" />

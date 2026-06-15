@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star } from 'lucide-react'
+import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star, Share2 } from 'lucide-react'
 import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult, ForecastData } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -16,6 +16,7 @@ import ThresholdsPanel from '@/components/ThresholdsPanel'
 import LocationSearch from '@/components/LocationSearch'
 import FavoritesBar from '@/components/FavoritesBar'
 import AuthModal from '@/components/AuthModal'
+import ShareModal from '@/components/ShareModal'
 import UnitToggle from '@/components/UnitToggle'
 import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
@@ -76,6 +77,8 @@ export default function Dashboard() {
   const [historyHours, setHistoryHours] = useState(24)
   const [error, setError] = useState<string | null>(null)
   const [showAuth, setShowAuth] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [sharePrompt, setSharePrompt] = useState<string | null>(null)
   const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null)
   const [guestFavs, setGuestFavs] = useState<ReturnType<typeof loadGuestFavs>>([])
   const [guestFavVersion, setGuestFavVersion] = useState(0)
@@ -133,10 +136,28 @@ export default function Dashboard() {
     }
   }, [activeLocation?.latitude, activeLocation?.longitude])
 
-  // Initial load: try geolocation first, fall back to configured default
+  // Initial load: shared deep-link → geolocation → configured default
   useEffect(() => {
     if (authLoading || initialLoadDone.current) return
     initialLoadDone.current = true
+
+    // Shared deep link: /?shared=1&lat=&lon=&name=
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search)
+      const lat = parseFloat(p.get('lat') || '')
+      const lon = parseFloat(p.get('lon') || '')
+      if (p.get('shared') && Number.isFinite(lat) && Number.isFinite(lon)) {
+        const name = p.get('name') || 'Shared location'
+        const loc: ActiveLocation = { name, latitude: lat, longitude: lon }
+        setActiveLocation(loc)
+        setLoading(true)
+        loadLiveData(loc)
+        setSharePrompt(name)
+        // Clean the URL so a refresh doesn't re-trigger the prompt.
+        window.history.replaceState({}, '', window.location.pathname)
+        return
+      }
+    }
 
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -271,7 +292,29 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-200 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showShare && displayLocation && (
+        <ShareModal location={displayLocation} onClose={() => setShowShare(false)} />
+      )}
       <VerificationBanner />
+
+      {/* Shared-link arrival prompt */}
+      {sharePrompt && !user && (
+        <div className="bg-sky-50 dark:bg-sky-950/40 border-b border-sky-200 dark:border-sky-900/60 px-4 py-2.5">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-sm">
+            <span className="text-sky-800 dark:text-sky-200">
+              📍 Someone shared <strong>{sharePrompt}</strong> with you. Sign up to save it and get severe-weather alerts.
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => setShowAuth(true)} className="px-3 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium">
+                Sign up
+              </button>
+              <button onClick={() => setSharePrompt(null)} className="text-sky-700 dark:text-sky-300 hover:opacity-70 text-xs">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className="border-b border-slate-300 bg-white dark:border-slate-800/80 dark:bg-slate-900/80 dark:backdrop-blur-sm sticky top-0 z-10 shadow-sm dark:shadow-none">
@@ -350,6 +393,16 @@ export default function Dashboard() {
                 >
                   <Star size={16} fill={isSaved ? 'currentColor' : 'none'} />
                 </button>
+                {/* Share — registered users only (activity is logged & throttled server-side) */}
+                {user && (
+                  <button
+                    onClick={() => setShowShare(true)}
+                    title="Share this location"
+                    className="p-1 rounded text-slate-400 hover:text-sky-500 transition-colors shrink-0"
+                  >
+                    <Share2 size={15} />
+                  </button>
+                )}
                 {activeLocation && (
                   <button onClick={handleReturnToDefault} className="text-xs text-sky-500 hover:underline shrink-0">
                     reset
