@@ -32,7 +32,10 @@ export default function AdminPanel() {
     verify_deadline_days: number; verify_reminder1_days: number; verify_reminder2_days: number; verify_reminder3_days: number
   }
   const [settings, setSettings] = useState<ShareSettings | null>(null)
-  const [settingsSaving, setSettingsSaving] = useState(false)
+  type SettingsCard = 'share' | 'verify'
+  const [savingCard, setSavingCard] = useState<SettingsCard | null>(null)
+  const [savedCard, setSavedCard] = useState<SettingsCard | null>(null)
+  const [settingsError, setSettingsError] = useState<SettingsCard | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -50,17 +53,19 @@ export default function AdminPanel() {
     api.admin.getSettings().then(d => setSettings(d as ShareSettings)).catch(() => {})
   }, [])
 
-  const saveSettings = async () => {
+  const saveSettings = async (card: SettingsCard) => {
     if (!settings) return
-    setSettingsSaving(true)
+    setSavingCard(card)
+    setSettingsError(null)
     try {
       const updated = await api.admin.updateSettings(settings) as ShareSettings
       setSettings(updated)
-      showToast('Share limits updated')
+      setSavedCard(card)
+      setTimeout(() => setSavedCard(prev => (prev === card ? null : prev)), 3000)
     } catch {
-      showToast('Failed to update share limits')
+      setSettingsError(card)
     } finally {
-      setSettingsSaving(false)
+      setSavingCard(null)
     }
   }
 
@@ -152,10 +157,14 @@ export default function AdminPanel() {
                 </div>
               ))}
             </div>
-            <button onClick={saveSettings} disabled={settingsSaving}
-              className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
-              <Save size={13} /> {settingsSaving ? 'Saving…' : 'Save'}
-            </button>
+            <div className="mt-4 flex items-center gap-3">
+              <button onClick={() => saveSettings('share')} disabled={savingCard === 'share'}
+                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+                <Save size={13} /> {savingCard === 'share' ? 'Saving…' : 'Save'}
+              </button>
+              {savedCard === 'share' && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle size={13} /> Saved</span>}
+              {settingsError === 'share' && <span className="text-xs text-red-500">Failed to save</span>}
+            </div>
           </div>
         ) : (
           <p className="text-sm text-slate-400">Loading…</p>
@@ -185,10 +194,14 @@ export default function AdminPanel() {
                 </div>
               ))}
             </div>
-            <button onClick={saveSettings} disabled={settingsSaving}
-              className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
-              <Save size={13} /> {settingsSaving ? 'Saving…' : 'Save'}
-            </button>
+            <div className="mt-4 flex items-center gap-3">
+              <button onClick={() => saveSettings('verify')} disabled={savingCard === 'verify'}
+                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+                <Save size={13} /> {savingCard === 'verify' ? 'Saving…' : 'Save'}
+              </button>
+              {savedCard === 'verify' && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle size={13} /> Saved</span>}
+              {settingsError === 'verify' && <span className="text-xs text-red-500">Failed to save</span>}
+            </div>
           </div>
         ) : (
           <p className="text-sm text-slate-400">Loading…</p>
