@@ -80,12 +80,21 @@ class ShareController extends Controller
         }
 
         $base = rtrim(config('app.frontend_url', config('app.url')), '/');
-        $url = $base . '/?shared=1'
+        $baseUrl = $base . '/?shared=1'
             . '&lat=' . $validated['latitude']
             . '&lon=' . $validated['longitude']
             . '&name=' . urlencode($validated['name']);
 
+        // Which recipients already have an account — lets the landing page hint
+        // "log in" vs "sign up". Resolved here (we legitimately hold the address)
+        // so no public email-enumeration endpoint is needed.
+        $registered = \App\Models\User::whereIn('email', $emails->all())
+            ->pluck('email')->map(fn ($e) => strtolower($e))->flip();
+
         foreach ($emails as $email) {
+            // Per-recipient link carrying the registered flag (0/1).
+            $url = $baseUrl . '&r=' . ($registered->has($email) ? '1' : '0');
+
             try {
                 Notification::route('mail', $email)
                     ->notify(new ShareLocationNotification($user->name, $validated['name'], $url));
@@ -104,7 +113,7 @@ class ShareController extends Controller
 
         return response()->json([
             'message' => 'Shared with ' . $emails->count() . ' recipient' . ($emails->count() === 1 ? '' : 's') . '.',
-            'url'     => $url,
+            'url'     => $baseUrl,
             'shared'  => $emails->count(),
         ]);
     }

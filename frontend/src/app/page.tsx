@@ -81,6 +81,8 @@ export default function Dashboard() {
   const [showShare, setShowShare] = useState(false)
   const [showVerifyShare, setShowVerifyShare] = useState(false)
   const [sharePrompt, setSharePrompt] = useState<string | null>(null)
+  const [shareRecipientKnown, setShareRecipientKnown] = useState(false)  // recipient already has an account
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null)
   const [guestFavs, setGuestFavs] = useState<ReturnType<typeof loadGuestFavs>>([])
   const [guestFavVersion, setGuestFavVersion] = useState(0)
@@ -155,6 +157,7 @@ export default function Dashboard() {
         setLoading(true)
         loadLiveData(loc)
         setSharePrompt(name)
+        setShareRecipientKnown(p.get('r') === '1')
         // Clean the URL so a refresh doesn't re-trigger the prompt.
         window.history.replaceState({}, '', window.location.pathname)
         return
@@ -293,7 +296,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-200 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} initialMode={authMode} />}
       {showShare && displayLocation && (
         <ShareModal location={displayLocation} onClose={() => setShowShare(false)} />
       )}
@@ -305,11 +308,17 @@ export default function Dashboard() {
         <div className="bg-sky-50 dark:bg-sky-950/40 border-b border-sky-200 dark:border-sky-900/60 px-4 py-2.5">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-sm">
             <span className="text-sky-800 dark:text-sky-200">
-              📍 Someone shared <strong>{sharePrompt}</strong> weather with you. Sign up to save it and get severe-weather alerts.
+              📍 Someone shared <strong>{sharePrompt}</strong> weather with you.{' '}
+              {shareRecipientKnown
+                ? 'Log in to save it and manage your weather alerts.'
+                : 'Sign up to save it and get severe-weather alerts.'}
             </span>
             <div className="flex items-center gap-2 shrink-0">
-              <button onClick={() => setShowAuth(true)} className="px-3 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium">
-                Sign up
+              <button
+                onClick={() => { setAuthMode(shareRecipientKnown ? 'login' : 'register'); setShowAuth(true) }}
+                className="px-3 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium"
+              >
+                {shareRecipientKnown ? 'Log in' : 'Sign up'}
               </button>
               <button onClick={() => setSharePrompt(null)} className="text-sky-700 dark:text-sky-300 hover:opacity-70 text-xs">
                 Dismiss

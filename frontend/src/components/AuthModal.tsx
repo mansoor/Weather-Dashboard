@@ -7,11 +7,11 @@ import { api } from '@/lib/api'
 
 type Tab = 'login' | 'register' | 'forgot'
 
-interface Props { onClose: () => void }
+interface Props { onClose: () => void; initialMode?: 'login' | 'register' }
 
-export default function AuthModal({ onClose }: Props) {
+export default function AuthModal({ onClose, initialMode = 'login' }: Props) {
   const { login, register } = useAuth()
-  const [tab, setTab] = useState<Tab>('login')
+  const [tab, setTab] = useState<Tab>(initialMode)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [forgotSent, setForgotSent] = useState(false)
