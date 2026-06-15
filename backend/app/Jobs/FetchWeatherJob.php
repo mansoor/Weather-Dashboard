@@ -35,17 +35,21 @@ class FetchWeatherJob implements ShouldQueue
             throw $e;
         }
 
-        // 2. All distinct user-favorited locations (skip those too close to the default)
+        // 2. User-favorited locations — fetched once per physical location.
+        // Dedup by coordinates rounded to ~1.1 km (2 decimals) rather than by the
+        // (name, lat, lon) tuple, so the same place saved under different names
+        // (e.g. "Boston" vs "Boston, MA") triggers a single API call & shared rows.
         $defaultLat = (float) config('weather.location.lat');
         $defaultLon = (float) config('weather.location.lon');
 
         UserLocation::select('name', 'latitude', 'longitude')
-            ->distinct()
             ->get()
             ->reject(fn ($loc) =>
                 abs($loc->latitude - $defaultLat) < 0.05 &&
                 abs($loc->longitude - $defaultLon) < 0.05
             )
+            ->groupBy(fn ($loc) => round($loc->latitude, 2) . ',' . round($loc->longitude, 2))
+            ->map(fn ($group) => $group->first())   // one representative per location
             ->each(function ($loc) use ($weather) {
                 try {
                     $weather->fetchAndStoreForLocation($loc->latitude, $loc->longitude, $loc->name);
