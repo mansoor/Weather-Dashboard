@@ -137,21 +137,23 @@ export default function AdminPanel() {
           <span className="text-xs text-slate-500 ml-1">— anti-spam</span>
         </div>
         {settings ? (
-          <div className="flex flex-wrap items-end gap-4">
-            {settingFields.map(f => (
-              <div key={f.key}>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
-                <input
-                  type="number" min={1}
-                  value={settings[f.key]}
-                  onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
-                  className={`w-28 ${inputCls}`}
-                />
-                <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
-              </div>
-            ))}
+          <div>
+            <div className="flex flex-wrap gap-4">
+              {settingFields.map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
+                  <input
+                    type="number" min={1}
+                    value={settings[f.key]}
+                    onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
+                    className={`w-28 ${inputCls}`}
+                  />
+                  <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
+                </div>
+              ))}
+            </div>
             <button onClick={saveSettings} disabled={settingsSaving}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+              className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
               <Save size={13} /> {settingsSaving ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -168,21 +170,23 @@ export default function AdminPanel() {
           <span className="text-xs text-slate-500 ml-1">— unverified accounts are deleted after the deadline</span>
         </div>
         {settings ? (
-          <div className="flex flex-wrap items-end gap-4">
-            {verifyFields.map(f => (
-              <div key={f.key}>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
-                <input
-                  type="number" min={0}
-                  value={settings[f.key]}
-                  onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
-                  className={`w-28 ${inputCls}`}
-                />
-                <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
-              </div>
-            ))}
+          <div>
+            <div className="flex flex-wrap gap-4">
+              {verifyFields.map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
+                  <input
+                    type="number" min={0}
+                    value={settings[f.key]}
+                    onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
+                    className={`w-28 ${inputCls}`}
+                  />
+                  <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
+                </div>
+              ))}
+            </div>
             <button onClick={saveSettings} disabled={settingsSaving}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+              className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
               <Save size={13} /> {settingsSaving ? 'Saving…' : 'Save'}
             </button>
           </div>
