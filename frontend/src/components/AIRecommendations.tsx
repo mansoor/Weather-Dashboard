@@ -1,6 +1,7 @@
 'use client'
 
 import type { WeatherReading, ForecastData } from '@/types/weather'
+import ActivitySuitability from './ActivitySuitability'
 
 interface Recommendation {
   emoji: string
@@ -153,27 +154,30 @@ function getRecs(reading: WeatherReading, forecast: ForecastData | null): Recomm
 export default function AIRecommendations({ reading, forecast }: { reading: WeatherReading; forecast: ForecastData | null }) {
   const recs = getRecs(reading, forecast)
 
-  if (!recs.length) return null
-
   return (
     <div className="glass rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">🤖</span>
-        <h2 className="font-semibold text-slate-800 dark:text-slate-200">Smart Recommendations</h2>
-        <span className="text-xs text-slate-400 ml-1">based on current conditions</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-lg">🤖</span>
+          <h2 className="font-semibold text-slate-800 dark:text-slate-200">Smart Recommendations</h2>
+          <span className="text-xs text-slate-400 ml-1 hidden lg:inline">based on current conditions</span>
+        </div>
+        <ActivitySuitability reading={reading} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {recs.map((rec, i) => (
-          <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700/50">
-            <span className="text-2xl shrink-0 mt-0.5">{rec.emoji}</span>
-            <div className="min-w-0">
-              <div className={`text-sm font-semibold ${rec.color} leading-snug`}>{rec.title}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">{rec.detail}</div>
+      {recs.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {recs.map((rec, i) => (
+            <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700/50">
+              <span className="text-2xl shrink-0 mt-0.5">{rec.emoji}</span>
+              <div className="min-w-0">
+                <div className={`text-sm font-semibold ${rec.color} leading-snug`}>{rec.title}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">{rec.detail}</div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
