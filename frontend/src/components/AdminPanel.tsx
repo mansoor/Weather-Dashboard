@@ -2,21 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle, Edit2, Mail, RefreshCw, Save, Shield, X, Share2 } from 'lucide-react'
-import type { AdminUser } from '@/types/weather'
+import type { AdminUser, UserRole } from '@/types/weather'
 import { api } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface EditState {
   name: string
   email: string
   password: string
-  is_admin: boolean
+  role: UserRole
 }
 
+const ROLE_LABEL: Record<UserRole, string> = { user: 'User', admin: 'Admin', super_admin: 'Super Admin' }
+
 export default function AdminPanel() {
+  const { user: me } = useAuth()
+  const iAmSuper = me?.role === 'super_admin'
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState<EditState>({ name: '', email: '', password: '', is_admin: false })
+  const [editForm, setEditForm] = useState<EditState>({ name: '', email: '', password: '', role: 'user' })
   const [saving, setSaving] = useState(false)
   const [resetting, setResetting] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -66,7 +71,7 @@ export default function AdminPanel() {
 
   const startEdit = (u: AdminUser) => {
     setEditId(u.id)
-    setEditForm({ name: u.name, email: u.email, password: '', is_admin: u.is_admin })
+    setEditForm({ name: u.name, email: u.email, password: '', role: u.role })
     setError(null)
   }
 
@@ -80,7 +85,7 @@ export default function AdminPanel() {
       const patch: Parameters<typeof api.admin.updateUser>[1] = {
         name: editForm.name,
         email: editForm.email,
-        is_admin: editForm.is_admin,
+        role: editForm.role,
       }
       if (editForm.password) patch.password = editForm.password
       const updated = await api.admin.updateUser(editId, patch) as AdminUser
@@ -212,7 +217,7 @@ export default function AdminPanel() {
               <th className="text-left p-4">User</th>
               <th className="text-left p-4 hidden md:table-cell">Joined</th>
               <th className="text-center p-4">Verified</th>
-              <th className="text-center p-4">Admin</th>
+              <th className="text-center p-4">User type</th>
               <th className="p-4" />
             </tr>
           </thead>
@@ -225,7 +230,7 @@ export default function AdminPanel() {
                   <td className="p-4">
                     <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       {u.name}
-                      {u.is_admin && <span title="Admin"><Shield size={11} className="text-amber-500" /></span>}
+                      {u.role !== 'user' && <span title={ROLE_LABEL[u.role]}><Shield size={11} className={u.role === 'super_admin' ? 'text-rose-500' : 'text-amber-500'} /></span>}
                     </div>
                     <div className="text-xs text-slate-500">{u.email}</div>
                   </td>
@@ -236,8 +241,12 @@ export default function AdminPanel() {
                     <span className={`inline-block w-2 h-2 rounded-full ${u.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} title={u.email_verified_at ? 'Verified' : 'Not verified'} />
                   </td>
                   <td className="p-4 text-center">
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${u.is_admin ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'text-slate-400'}`}>
-                      {u.is_admin ? 'Admin' : '—'}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      u.role === 'super_admin' ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
+                      : u.role === 'admin' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                      : 'text-slate-400'
+                    }`}>
+                      {ROLE_LABEL[u.role]}
                     </span>
                   </td>
                   <td className="p-4">
@@ -278,17 +287,24 @@ export default function AdminPanel() {
                           <label className="text-xs text-slate-500 mb-1 block">New Password <span className="opacity-60">(leave blank to keep)</span></label>
                           <input type="password" value={editForm.password} onChange={e => setEditForm(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" className={inputCls} />
                         </div>
-                        <div className="flex flex-col justify-between">
-                          <label className="text-xs text-slate-500 mb-1 block">Role</label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={editForm.is_admin}
-                              onChange={e => setEditForm(p => ({ ...p, is_admin: e.target.checked }))}
-                              className="w-4 h-4 rounded accent-amber-500"
-                            />
-                            <span className="text-sm text-slate-700 dark:text-slate-300">Super Admin</span>
-                          </label>
+                        <div>
+                          <label className="text-xs text-slate-500 mb-1 block">User type</label>
+                          {!iAmSuper && u.role === 'super_admin' ? (
+                            <div className="text-sm text-slate-500 dark:text-slate-400 py-2">
+                              Super Admin
+                              <span className="block text-[11px] text-slate-400">Only a super admin can change this</span>
+                            </div>
+                          ) : (
+                            <select
+                              value={editForm.role}
+                              onChange={e => setEditForm(p => ({ ...p, role: e.target.value as UserRole }))}
+                              className={inputCls}
+                            >
+                              {(iAmSuper ? (['user', 'admin', 'super_admin'] as const) : (['user', 'admin'] as const)).map(r => (
+                                <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       </div>
                       {error && (

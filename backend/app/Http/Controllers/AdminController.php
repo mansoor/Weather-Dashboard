@@ -19,6 +19,7 @@ class AdminController extends Controller
             'name'              => $u->name,
             'email'             => $u->email,
             'is_admin'          => $u->is_admin,
+            'role'              => $u->role ?? 'user',
             'email_verified_at' => $u->email_verified_at?->toIso8601String(),
             'created_at'        => $u->created_at->toIso8601String(),
         ]);
@@ -28,14 +29,41 @@ class AdminController extends Controller
 
     public function updateUser(Request $request, int $id): JsonResponse
     {
+        $actor = $request->user();
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
             'name'     => 'sometimes|string|max:255',
             'email'    => 'sometimes|email|unique:users,email,' . $id,
             'password' => ['sometimes', PasswordRule::min(8)],
-            'is_admin' => 'sometimes|boolean',
+            'role'     => 'sometimes|in:user,admin,super_admin',
         ]);
+
+        // ── Role-change permission rules ──
+        if (array_key_exists('role', $validated) && $validated['role'] !== ($user->role ?? 'user')) {
+            $newRole = $validated['role'];
+
+            if (!$actor->isSuperAdmin()) {
+                // A non-super admin may not modify a super-admin, nor grant super-admin.
+                if (($user->role ?? 'user') === 'super_admin' || $newRole === 'super_admin') {
+                    return response()->json([
+                        'message' => 'Only a super admin can change a super admin\'s role.',
+                    ], 403);
+                }
+            }
+
+            // Never strand the platform without a super admin.
+            if (($user->role ?? 'user') === 'super_admin' && $newRole !== 'super_admin'
+                && User::where('role', 'super_admin')->count() <= 1) {
+                return response()->json([
+                    'message' => 'Cannot remove the last super admin.',
+                ], 422);
+            }
+
+            $validated['is_admin'] = $newRole !== 'user';
+        } else {
+            unset($validated['role']);
+        }
 
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -54,6 +82,7 @@ class AdminController extends Controller
             'name'              => $user->name,
             'email'             => $user->email,
             'is_admin'          => $user->is_admin,
+            'role'              => $user->role ?? 'user',
             'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             'created_at'        => $user->created_at->toIso8601String(),
         ]);

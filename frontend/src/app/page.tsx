@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star, Share2 } from 'lucide-react'
+import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star, Share2, Shield } from 'lucide-react'
 import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult, ForecastData } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -76,7 +76,7 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetching, setFetching] = useState(false)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'settings'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'alerts' | 'settings' | 'admin'>('dashboard')
   const [historyHours, setHistoryHours] = useState(24)
   const [error, setError] = useState<string | null>(null)
   const [showAuth, setShowAuth] = useState(false)
@@ -444,7 +444,7 @@ export default function Dashboard() {
           </div>
 
           <nav className="flex items-center gap-1">
-            {(['dashboard', 'alerts', 'settings'] as const).map(tab => (
+            {(['dashboard', 'alerts', 'settings', ...(user?.is_admin ? ['admin' as const] : [])] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => {
@@ -464,6 +464,7 @@ export default function Dashboard() {
                 )}
                 {tab === 'alerts' && <Bell size={13} className="inline mr-1" />}
                 {tab === 'settings' && <Settings size={13} className="inline mr-1" />}
+                {tab === 'admin' && <Shield size={13} className="inline mr-1" />}
                 {tab}
               </button>
             ))}
@@ -578,9 +579,10 @@ export default function Dashboard() {
                   aqiScale={forecast?.aqi_scale ?? 'eu'}
                 />
                 <AccountSettings />
-                {user?.is_admin && <AdminPanel />}
               </>
             )}
+
+            {activeTab === 'admin' && user?.is_admin && <AdminPanel />}
           </>
         )}
       </main>

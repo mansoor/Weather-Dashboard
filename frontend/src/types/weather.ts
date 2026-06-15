@@ -78,12 +78,15 @@ export interface GeoResult {
   longitude: number
 }
 
+export type UserRole = 'user' | 'admin' | 'super_admin'
+
 export interface User {
   id: number
   name: string
   email: string
   email_verified_at: string | null
   is_admin: boolean
+  role: UserRole
 }
 
 export interface AdminUser {
@@ -91,6 +94,7 @@ export interface AdminUser {
   name: string
   email: string
   is_admin: boolean
+  role: UserRole
   email_verified_at: string | null
   created_at: string
 }

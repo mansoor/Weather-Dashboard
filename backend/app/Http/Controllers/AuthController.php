@@ -31,7 +31,10 @@ class AuthController extends Controller
         ]);
 
         $isFirst = User::count() === 0;
-        $user = User::create(array_merge($validated, ['is_admin' => $isFirst]));
+        $user = User::create(array_merge($validated, [
+            'is_admin' => $isFirst,
+            'role'     => $isFirst ? 'super_admin' : 'user',
+        ]));
         UserSetting::create(['user_id' => $user->id, 'temp_unit' => 'C', 'theme' => 'dark']);
 
         // Fires SendEmailVerificationNotification listener automatically

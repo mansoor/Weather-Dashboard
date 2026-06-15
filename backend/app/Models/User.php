@@ -14,7 +14,7 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'is_admin', 'email_verified_at'];
+    protected $fillable = ['name', 'email', 'password', 'is_admin', 'role', 'email_verified_at'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -45,6 +45,11 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->notify(new \App\Notifications\ResetPasswordNotification($token));
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
+    }
+
     public function apiData(): array
     {
         return [
@@ -53,6 +58,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email'             => $this->email,
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'is_admin'          => (bool) $this->is_admin,
+            'role'              => $this->role ?? 'user',
         ];
     }
 }

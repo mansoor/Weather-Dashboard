@@ -95,7 +95,7 @@ export const api = {
   },
   admin: {
     users: () => get('/admin/users'),
-    updateUser: (id: number, data: Partial<{ name: string; email: string; password: string; is_admin: boolean }>) =>
+    updateUser: (id: number, data: Partial<{ name: string; email: string; password: string; role: 'user' | 'admin' | 'super_admin' }>) =>
       patch(`/admin/users/${id}`, data),
     sendReset: (id: number) => post(`/admin/users/${id}/send-reset`),
     getSettings: () => get('/admin/settings'),
