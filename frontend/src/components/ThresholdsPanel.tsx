@@ -6,6 +6,7 @@ import type { AlertThreshold, UserLocation } from '@/types/weather'
 import { api } from '@/lib/api'
 import { aqiHex, aqiLabel } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface MonitorLocation {
   name: string
@@ -22,11 +23,18 @@ interface Props {
 
 export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocation, aqiScale = 'eu' }: Props) {
   const { unit, convertTemp, convertToC, unitLabel, convertWind, windToBase, windLabel } = useSettings()
+  const { user, resendVerification } = useAuth()
+  const emailVerified = !!user?.email_verified_at
   const [thresholds, setThresholds] = useState<AlertThreshold[]>([])
   const [saving, setSaving] = useState<number | null>(null)
   const [savingLoc, setSavingLoc] = useState(false)
   const [locSaved, setLocSaved] = useState(false)
   const [edits, setEdits] = useState<Record<number, Partial<AlertThreshold>>>({})
+  const [verifySent, setVerifySent] = useState(false)
+
+  const handleVerifyResend = async () => {
+    try { await resendVerification(); setVerifySent(true); setTimeout(() => setVerifySent(false), 4000) } catch {}
+  }
 
   useEffect(() => {
     api.thresholds.list().then(d => setThresholds(d as AlertThreshold[]))
@@ -216,7 +224,19 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
               <th className="text-left p-4">Threshold</th>
               <th className="text-left p-4">Severity</th>
               <th className="text-center p-4">Enabled</th>
-              <th className="text-center p-4">Email</th>
+              <th className="text-center p-4">
+                Email
+                {!emailVerified && (
+                  verifySent ? (
+                    <span className="block font-normal normal-case text-[10px] text-emerald-500 mt-0.5">Verification sent</span>
+                  ) : (
+                    <button onClick={handleVerifyResend}
+                      className="block font-normal normal-case text-[10px] text-amber-500 hover:text-amber-600 hover:underline mt-0.5">
+                      (Please verify)
+                    </button>
+                  )
+                )}
+              </th>
               <th className="p-4" />
             </tr>
           </thead>
@@ -269,9 +289,11 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
                 </td>
                 <td className="p-4 text-center">
                   <input type="checkbox"
-                    checked={getValue(t, 'notify_email') as boolean}
+                    checked={emailVerified && (getValue(t, 'notify_email') as boolean)}
+                    disabled={!emailVerified}
+                    title={emailVerified ? undefined : 'Verify your email to enable email alerts'}
                     onChange={e => editNonValue(t.id, { notify_email: e.target.checked })}
-                    className="w-4 h-4 rounded accent-sky-500" />
+                    className="w-4 h-4 rounded accent-sky-500 disabled:opacity-40 disabled:cursor-not-allowed" />
                 </td>
                 <td className="p-4">
                   {edits[t.id] && (

@@ -27,6 +27,17 @@ class ThresholdController extends Controller
             'monitor_name' => 'sometimes|nullable|string|max:100',
         ]);
 
+        // Email alerts require a verified email address. (Resolve the Sanctum
+        // user from the bearer token even though this route isn't middleware-gated.)
+        if (($validated['notify_email'] ?? false) === true) {
+            $user = $request->user('sanctum');
+            if (!$user || $user->email_verified_at === null) {
+                return response()->json([
+                    'message' => 'Please verify your email address to enable email alerts.',
+                ], 403);
+            }
+        }
+
         $threshold->update($validated);
 
         return response()->json($threshold);

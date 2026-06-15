@@ -22,7 +22,10 @@ export default function AdminPanel() {
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  type ShareSettings = { share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number }
+  type ShareSettings = {
+    share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number
+    verify_deadline_days: number; verify_reminder1_days: number; verify_reminder2_days: number; verify_reminder3_days: number
+  }
   const [settings, setSettings] = useState<ShareSettings | null>(null)
   const [settingsSaving, setSettingsSaving] = useState(false)
 
@@ -112,6 +115,13 @@ export default function AdminPanel() {
     { key: 'share_max_per_email_per_day', label: 'Max per email / user / day', hint: 'to one address daily' },
   ]
 
+  const verifyFields: { key: keyof ShareSettings; label: string; hint: string }[] = [
+    { key: 'verify_deadline_days', label: 'Verify deadline', hint: 'days before account deletion' },
+    { key: 'verify_reminder1_days', label: 'Reminder 1', hint: 'days before deletion' },
+    { key: 'verify_reminder2_days', label: 'Reminder 2', hint: 'days before deletion' },
+    { key: 'verify_reminder3_days', label: 'Reminder 3', hint: 'days before deletion' },
+  ]
+
   return (
     <div className="space-y-4 mt-6">
       {/* Share anti-spam settings */}
@@ -128,6 +138,37 @@ export default function AdminPanel() {
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
                 <input
                   type="number" min={1}
+                  value={settings[f.key]}
+                  onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
+                  className={`w-28 ${inputCls}`}
+                />
+                <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
+              </div>
+            ))}
+            <button onClick={saveSettings} disabled={settingsSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+              <Save size={13} /> {settingsSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Loading…</p>
+        )}
+      </div>
+
+      {/* Email verification & auto-deletion */}
+      <div className="glass rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield size={16} className="text-amber-500" />
+          <h2 className="font-semibold text-slate-800 dark:text-slate-200">Email Verification</h2>
+          <span className="text-xs text-slate-500 ml-1">— unverified accounts are deleted after the deadline</span>
+        </div>
+        {settings ? (
+          <div className="flex flex-wrap items-end gap-4">
+            {verifyFields.map(f => (
+              <div key={f.key}>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
+                <input
+                  type="number" min={0}
                   value={settings[f.key]}
                   onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
                   className={`w-28 ${inputCls}`}

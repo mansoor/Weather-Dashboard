@@ -66,13 +66,17 @@ class AdminController extends Controller
         return response()->json(['message' => 'Password reset email sent to ' . $user->email]);
     }
 
-    /** Application-level settings (share anti-spam limits, etc.). */
+    /** Application-level settings (share anti-spam limits, verification, etc.). */
     public function settings(): JsonResponse
     {
         return response()->json([
             'share_max_recipients'        => AppSetting::getInt('share_max_recipients', 5),
             'share_max_per_day'           => AppSetting::getInt('share_max_per_day', 20),
             'share_max_per_email_per_day' => AppSetting::getInt('share_max_per_email_per_day', 3),
+            'verify_deadline_days'        => AppSetting::getInt('verify_deadline_days', 7),
+            'verify_reminder1_days'       => AppSetting::getInt('verify_reminder1_days', 5),
+            'verify_reminder2_days'       => AppSetting::getInt('verify_reminder2_days', 3),
+            'verify_reminder3_days'       => AppSetting::getInt('verify_reminder3_days', 1),
         ]);
     }
 
@@ -82,6 +86,10 @@ class AdminController extends Controller
             'share_max_recipients'        => 'sometimes|integer|min:1|max:50',
             'share_max_per_day'           => 'sometimes|integer|min:1|max:1000',
             'share_max_per_email_per_day' => 'sometimes|integer|min:1|max:100',
+            'verify_deadline_days'        => 'sometimes|integer|min:1|max:365',
+            'verify_reminder1_days'       => 'sometimes|integer|min:0|max:365',
+            'verify_reminder2_days'       => 'sometimes|integer|min:0|max:365',
+            'verify_reminder3_days'       => 'sometimes|integer|min:0|max:365',
         ]);
 
         foreach ($validated as $key => $value) {
