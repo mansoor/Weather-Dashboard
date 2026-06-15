@@ -17,6 +17,7 @@ import LocationSearch from '@/components/LocationSearch'
 import FavoritesBar from '@/components/FavoritesBar'
 import AuthModal from '@/components/AuthModal'
 import ShareModal from '@/components/ShareModal'
+import VerifyEmailModal from '@/components/VerifyEmailModal'
 import UnitToggle from '@/components/UnitToggle'
 import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
@@ -78,6 +79,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [showAuth, setShowAuth] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showVerifyShare, setShowVerifyShare] = useState(false)
   const [sharePrompt, setSharePrompt] = useState<string | null>(null)
   const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null)
   const [guestFavs, setGuestFavs] = useState<ReturnType<typeof loadGuestFavs>>([])
@@ -295,6 +297,7 @@ export default function Dashboard() {
       {showShare && displayLocation && (
         <ShareModal location={displayLocation} onClose={() => setShowShare(false)} />
       )}
+      {showVerifyShare && <VerifyEmailModal onClose={() => setShowVerifyShare(false)} />}
       <VerificationBanner />
 
       {/* Shared-link arrival prompt */}
@@ -302,7 +305,7 @@ export default function Dashboard() {
         <div className="bg-sky-50 dark:bg-sky-950/40 border-b border-sky-200 dark:border-sky-900/60 px-4 py-2.5">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-sm">
             <span className="text-sky-800 dark:text-sky-200">
-              📍 Someone shared <strong>{sharePrompt}</strong> with you. Sign up to save it and get severe-weather alerts.
+              📍 Someone shared <strong>{sharePrompt}</strong> weather with you. Sign up to save it and get severe-weather alerts.
             </span>
             <div className="flex items-center gap-2 shrink-0">
               <button onClick={() => setShowAuth(true)} className="px-3 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium">
@@ -396,7 +399,7 @@ export default function Dashboard() {
                 {/* Share — registered users only (activity is logged & throttled server-side) */}
                 {user && (
                   <button
-                    onClick={() => setShowShare(true)}
+                    onClick={() => user.email_verified_at ? setShowShare(true) : setShowVerifyShare(true)}
                     title="Share this location"
                     className="p-1 rounded text-slate-400 hover:text-sky-500 transition-colors shrink-0"
                   >

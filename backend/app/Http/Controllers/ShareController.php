@@ -31,6 +31,13 @@ class ShareController extends Controller
     {
         $user = $request->user();
 
+        // Gate: the email must be verified before a user can share.
+        if ($user->email_verified_at === null) {
+            return response()->json([
+                'message' => 'Please verify your email address before sharing.',
+            ], 403);
+        }
+
         $maxRecipients     = AppSetting::getInt('share_max_recipients', 5);
         $maxPerDay         = AppSetting::getInt('share_max_per_day', 20);
         $maxPerEmailPerDay = AppSetting::getInt('share_max_per_email_per_day', 3);
