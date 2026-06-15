@@ -69,6 +69,8 @@ export default function Dashboard() {
 
   const [current, setCurrent] = useState<WeatherReading | null>(null)
   const [alerts, setAlerts] = useState<WeatherAlert[]>([])
+  // Guests can view alerts; dismissals persist only in their browser.
+  const [guestDismissed, setGuestDismissed] = useState<number[]>([])
   const [stats, setStats] = useState<WeatherStats | null>(null)
   const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -88,6 +90,21 @@ export default function Dashboard() {
   const [guestFavVersion, setGuestFavVersion] = useState(0)
 
   useEffect(() => { setGuestFavs(loadGuestFavs()) }, [guestFavVersion])
+
+  // Load guest alert dismissals from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('weather_dismissed_alerts')
+      if (raw) setGuestDismissed(JSON.parse(raw))
+    } catch { /* ignore */ }
+  }, [])
+
+  const persistGuestDismissed = (ids: number[]) => {
+    setGuestDismissed(ids)
+    try { localStorage.setItem('weather_dismissed_alerts', JSON.stringify(ids)) } catch { /* ignore */ }
+  }
+  const dismissGuestAlert = (id: number) => persistGuestDismissed(Array.from(new Set([...guestDismissed, id])))
+  const dismissAllGuestAlerts = (ids: number[]) => persistGuestDismissed(Array.from(new Set([...guestDismissed, ...ids])))
 
   const loadDefaultData = useCallback(async () => {
     try {
@@ -267,7 +284,9 @@ export default function Dashboard() {
     }
   }
 
-  const unacknowledgedCount = alerts.filter(a => !a.acknowledged).length
+  const unacknowledgedCount = user
+    ? alerts.filter(a => !a.acknowledged).length
+    : alerts.filter(a => !guestDismissed.includes(a.id)).length
   const displayLocation = current
     ? { name: current.location_name, latitude: current.latitude, longitude: current.longitude }
     : null
@@ -429,7 +448,7 @@ export default function Dashboard() {
               <button
                 key={tab}
                 onClick={() => {
-                  if (!user && tab !== 'dashboard') { setShowAuth(true); return }
+                  if (!user && tab === 'settings') { setShowAuth(true); return }
                   setActiveTab(tab)
                 }}
                 className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors relative ${
@@ -539,7 +558,16 @@ export default function Dashboard() {
               </div>
             )}
 
-            {activeTab === 'alerts' && <AlertPanel alerts={alerts} onRefresh={loadData} />}
+            {activeTab === 'alerts' && (
+              <AlertPanel
+                alerts={alerts}
+                onRefresh={loadData}
+                guest={!user}
+                dismissedIds={guestDismissed}
+                onGuestDismiss={dismissGuestAlert}
+                onGuestDismissAll={dismissAllGuestAlerts}
+              />
+            )}
 
             {activeTab === 'settings' && (
               <>

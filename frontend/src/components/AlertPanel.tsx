@@ -7,13 +7,31 @@ import type { WeatherAlert } from '@/types/weather'
 import { api } from '@/lib/api'
 import { severityColor } from '@/lib/utils'
 
-export default function AlertPanel({ alerts, onRefresh }: { alerts: WeatherAlert[]; onRefresh: () => void }) {
+interface Props {
+  alerts: WeatherAlert[]
+  onRefresh: () => void
+  guest?: boolean
+  dismissedIds?: number[]
+  onGuestDismiss?: (id: number) => void
+  onGuestDismissAll?: (ids: number[]) => void
+}
+
+export default function AlertPanel({ alerts, onRefresh, guest = false, dismissedIds = [], onGuestDismiss, onGuestDismissAll }: Props) {
   const [filter, setFilter] = useState<'active' | 'all'>('active')
 
-  const visible = filter === 'active' ? alerts.filter(a => !a.acknowledged) : alerts
+  // For guests, "acknowledged" comes from their local (browser-only) dismissals.
+  const isAck = (a: WeatherAlert) => guest ? dismissedIds.includes(a.id) : a.acknowledged
 
-  const handleAcknowledge = async (id: number) => { await api.alerts.acknowledge(id); onRefresh() }
-  const handleAcknowledgeAll = async () => { await api.alerts.acknowledgeAll(); onRefresh() }
+  const visible = filter === 'active' ? alerts.filter(a => !isAck(a)) : alerts
+
+  const handleAcknowledge = async (id: number) => {
+    if (guest) { onGuestDismiss?.(id); return }
+    await api.alerts.acknowledge(id); onRefresh()
+  }
+  const handleAcknowledgeAll = async () => {
+    if (guest) { onGuestDismissAll?.(alerts.filter(a => !isAck(a)).map(a => a.id)); return }
+    await api.alerts.acknowledgeAll(); onRefresh()
+  }
 
   const tabCls = (active: boolean) =>
     `px-3 py-1.5 rounded text-sm transition-colors ${
@@ -24,16 +42,21 @@ export default function AlertPanel({ alerts, onRefresh }: { alerts: WeatherAlert
 
   return (
     <div className="space-y-4">
+      {guest && (
+        <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 rounded-lg px-3 py-2">
+          You&apos;re viewing as a guest — dismissals are saved only in this browser. Sign up to manage alerts across devices and get email notifications.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
           <button onClick={() => setFilter('active')} className={tabCls(filter === 'active')}>
-            Active ({alerts.filter(a => !a.acknowledged).length})
+            Active ({alerts.filter(a => !isAck(a)).length})
           </button>
           <button onClick={() => setFilter('all')} className={tabCls(filter === 'all')}>
             All ({alerts.length})
           </button>
         </div>
-        {alerts.some(a => !a.acknowledged) && (
+        {alerts.some(a => !isAck(a)) && (
           <button onClick={handleAcknowledgeAll}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded text-sm transition-colors">
             <CheckCheck size={14} />
@@ -52,7 +75,7 @@ export default function AlertPanel({ alerts, onRefresh }: { alerts: WeatherAlert
         <div className="space-y-2">
           {visible.map(alert => (
             <div key={alert.id}
-              className={`glass rounded-xl p-4 border flex items-start justify-between gap-4 ${alert.acknowledged ? 'opacity-50' : ''} ${severityColor(alert.severity)}`}>
+              className={`glass rounded-xl p-4 border flex items-start justify-between gap-4 ${isAck(alert) ? 'opacity-50' : ''} ${severityColor(alert.severity)}`}>
               <div className="flex items-start gap-3">
                 <Bell size={16} className="mt-0.5 shrink-0" />
                 <div>
@@ -67,10 +90,10 @@ export default function AlertPanel({ alerts, onRefresh }: { alerts: WeatherAlert
                   </p>
                 </div>
               </div>
-              {!alert.acknowledged && (
+              {!isAck(alert) && (
                 <button onClick={() => handleAcknowledge(alert.id)}
                   className="shrink-0 p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300/80 dark:bg-slate-700/50 dark:hover:bg-slate-600/50 transition-colors"
-                  title="Acknowledge">
+                  title={guest ? 'Dismiss (saved in this browser)' : 'Acknowledge'}>
                   <Check size={14} />
                 </button>
               )}
