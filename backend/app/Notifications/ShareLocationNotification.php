@@ -3,12 +3,16 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ShareLocationNotification extends Notification
+class ShareLocationNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    public int $tries = 3;
+    public int $backoff = 30;
 
     public function __construct(
         public string $senderName,
