@@ -17,7 +17,7 @@ class AuthController extends Controller
         return [
             'user' => $user->apiData(),
             'token' => $token,
-            'settings' => $user->settings?->only(['temp_unit', 'theme', 'notification_urls']) ?? ['temp_unit' => 'C', 'theme' => 'dark', 'notification_urls' => null],
+            'settings' => $user->settings?->only(['temp_unit', 'unit_system', 'theme', 'notification_urls']) ?? ['temp_unit' => 'C', 'unit_system' => 'auto', 'theme' => 'dark', 'notification_urls' => null],
             'locations' => $user->locations()->orderBy('is_default', 'desc')->get(),
         ];
     }
@@ -77,7 +77,7 @@ class AuthController extends Controller
         $user = $request->user();
         return response()->json([
             'user' => $user->apiData(),
-            'settings' => $user->settings?->only(['temp_unit', 'theme', 'notification_urls']) ?? ['temp_unit' => 'C', 'theme' => 'dark', 'notification_urls' => null],
+            'settings' => $user->settings?->only(['temp_unit', 'unit_system', 'theme', 'notification_urls']) ?? ['temp_unit' => 'C', 'unit_system' => 'auto', 'theme' => 'dark', 'notification_urls' => null],
             'locations' => $user->locations()->orderBy('is_default', 'desc')->get(),
         ]);
     }

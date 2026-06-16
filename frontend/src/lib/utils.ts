@@ -4,6 +4,14 @@ export function windDirection(degrees: number | null): string {
   return dirs[Math.round(degrees / 45) % 8]
 }
 
+// Arrow glyph pointing the way the wind blows (toward). `degrees` is the
+// meteorological direction the wind comes FROM, so we add 180°.
+export function windArrow(degrees: number | null): string {
+  if (degrees === null) return ''
+  const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖']
+  return arrows[Math.round(((degrees + 180) % 360) / 45) % 8]
+}
+
 export function weatherEmoji(code: number | null, isDay: boolean): string {
   if (code === null) return '🌡️'
   if (code === 0) return isDay ? '☀️' : '🌙'

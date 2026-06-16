@@ -123,6 +123,7 @@ export interface HourlyPoint {
   precipitation: number | null
   weather_code: number | null
   wind_speed: number | null
+  wind_direction: number | null
   is_day: boolean
   humidity: number | null
   dew_point: number | null

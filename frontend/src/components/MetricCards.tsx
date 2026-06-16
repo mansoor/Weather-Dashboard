@@ -1,7 +1,7 @@
 'use client'
 
 import type { WeatherReading } from '@/types/weather'
-import { fmt } from '@/lib/utils'
+import { fmt, windDirection } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 import { Wind, Umbrella, Cloud, Sun, Gauge, Zap } from 'lucide-react'
 
@@ -11,7 +11,9 @@ export default function MetricCards({ reading }: { reading: WeatherReading }) {
   const cards = [
     {
       key: 'wind', label: 'Wind', icon: Wind, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 border-l-2 border-l-cyan-400 dark:bg-cyan-900/20 dark:border-l-cyan-700',
-      main: fmtWind(reading.wind_speed, 1),
+      main: reading.wind_direction != null
+        ? `${fmtWind(reading.wind_speed, 1)} ${windDirection(reading.wind_direction)}`
+        : fmtWind(reading.wind_speed, 1),
       sub: reading.wind_gusts != null ? `Gusts ${fmtWind(reading.wind_gusts, 1)}` : 'No gust data',
     },
     {

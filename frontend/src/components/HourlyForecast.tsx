@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Wind } from 'lucide-react'
 import type { HourlyPoint } from '@/types/weather'
-import { weatherEmoji, aqiHex, aqiLabel } from '@/lib/utils'
+import { weatherEmoji, aqiHex, aqiLabel, windArrow, windDirection } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
 interface Props {
@@ -26,7 +26,7 @@ function formatHour(isoTime: string, timezone: string | null): string {
 }
 
 export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Props) {
-  const { fmtTemp } = useSettings()
+  const { fmtTemp, fmtWind } = useSettings()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
   const [canRight, setCanRight] = useState(true)
@@ -134,6 +134,14 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
                     {/* Temperature */}
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                       {fmtTemp(h.temperature, 0)}
+                    </span>
+                    {/* Wind (direction arrow + speed) */}
+                    <span className="mt-1 flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                      title={h.wind_direction != null ? `Wind from ${windDirection(h.wind_direction)}` : 'Wind speed'}>
+                      {h.wind_direction != null
+                        ? <span className="text-cyan-500 dark:text-cyan-400 text-xs leading-none">{windArrow(h.wind_direction)}</span>
+                        : <Wind size={10} className="shrink-0 opacity-70" />}
+                      {h.wind_speed != null ? fmtWind(h.wind_speed, 0) : '—'}
                     </span>
                     {/* Air quality */}
                     {h.aqi != null ? (

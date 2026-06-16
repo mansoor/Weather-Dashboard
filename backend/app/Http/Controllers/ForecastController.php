@@ -23,7 +23,7 @@ class ForecastController extends Controller
                     'longitude' => $lon,
                     'hourly'    => implode(',', [
                         'temperature_2m', 'apparent_temperature', 'precipitation_probability',
-                        'precipitation', 'weather_code', 'wind_speed_10m', 'is_day',
+                        'precipitation', 'weather_code', 'wind_speed_10m', 'wind_direction_10m', 'is_day',
                         'relative_humidity_2m', 'dew_point_2m', 'uv_index',
                     ]),
                     // NB: Open-Meteo does not provide moon data — moonrise/moonset/
@@ -71,6 +71,7 @@ class ForecastController extends Controller
                 'precipitation'           => $data['hourly']['precipitation'][$i] ?? null,
                 'weather_code'            => $data['hourly']['weather_code'][$i] ?? null,
                 'wind_speed'              => $data['hourly']['wind_speed_10m'][$i] ?? null,
+                'wind_direction'          => $data['hourly']['wind_direction_10m'][$i] ?? null,
                 'is_day'                  => ($data['hourly']['is_day'][$i] ?? 1) === 1,
                 'humidity'                => $data['hourly']['relative_humidity_2m'][$i] ?? null,
                 'dew_point'               => $data['hourly']['dew_point_2m'][$i] ?? null,

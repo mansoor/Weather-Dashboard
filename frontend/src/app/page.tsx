@@ -219,10 +219,12 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [loadForecast])
 
-  // Derive the location's default measurement system (US → imperial) for "Auto" mode
+  // Derive the location's default measurement system (US → imperial) for "Auto" mode.
+  // Use the current reading's timezone first (loads with the main data), then forecast.
   useEffect(() => {
-    setAutoSystem(isUsTimezone(forecast?.timezone) ? 'imperial' : 'metric')
-  }, [forecast?.timezone, setAutoSystem])
+    const tz = current?.timezone ?? forecast?.timezone
+    setAutoSystem(isUsTimezone(tz) ? 'imperial' : 'metric')
+  }, [current?.timezone, forecast?.timezone, setAutoSystem])
 
   // Refresh immediately when the tab regains focus / becomes visible so the
   // data is never stale after the page has been in the background.
