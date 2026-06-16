@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star, Share2, Shield } from 'lucide-react'
+import { RefreshCw, Bell, Settings, MapPin, User, LogOut, Star, Share2, Shield, Menu, ChevronDown, X, Trash2 } from 'lucide-react'
 import type { WeatherReading, WeatherAlert, WeatherStats, GeoResult, ForecastData } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -82,6 +82,8 @@ export default function Dashboard() {
   const [showAuth, setShowAuth] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showVerifyShare, setShowVerifyShare] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [savedOpen, setSavedOpen] = useState(false)
   const [sharePrompt, setSharePrompt] = useState<string | null>(null)
   const [shareRecipientKnown, setShareRecipientKnown] = useState(false)  // recipient already has an account
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
@@ -315,6 +317,30 @@ export default function Dashboard() {
     }
   }
 
+  // Shared tab selection (used by desktop nav + mobile hamburger)
+  const selectTab = (tab: 'dashboard' | 'alerts' | 'settings' | 'admin') => {
+    if (!user && tab === 'settings') { setShowAuth(true); setMobileNavOpen(false); return }
+    setActiveTab(tab)
+    setMobileNavOpen(false)
+  }
+  const navTabs = ['dashboard', 'alerts', 'settings', ...(user?.is_admin ? ['admin' as const] : [])] as const
+
+  // Saved locations for the mobile dropdown (logged-in favourites or guest favourites)
+  const savedList = user
+    ? locations.map(l => ({ key: String(l.id), name: l.name, latitude: l.latitude, longitude: l.longitude }))
+    : guestFavs.map((f, i) => ({ key: `g${i}`, name: f.name, latitude: f.latitude, longitude: f.longitude }))
+
+  const removeSaved = async (item: { latitude: number; longitude: number }) => {
+    if (user) {
+      const existing = locations.find(l => Math.abs(l.latitude - item.latitude) < 0.01 && Math.abs(l.longitude - item.longitude) < 0.01)
+      if (existing) await removeLocation(existing.id)
+    } else {
+      const favs = loadGuestFavs().filter(f => !(Math.abs(f.latitude - item.latitude) < 0.01 && Math.abs(f.longitude - item.longitude) < 0.01))
+      saveGuestFavs(favs)
+      setGuestFavVersion(v => v + 1)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-200 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} initialMode={authMode} />}
@@ -352,6 +378,8 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-slate-300 bg-white dark:border-slate-800/80 dark:bg-slate-900/80 dark:backdrop-blur-sm sticky top-0 z-10 shadow-sm dark:shadow-none">
 
+      {/* ════ Desktop / tablet-landscape header (md and up) ════ */}
+      <div className="hidden md:block">
         {/* ── Row 1: logo + location + save | search | clock + theme + user ── */}
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
 
@@ -490,6 +518,116 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ════ Mobile header (below md) ════ */}
+      <div className="md:hidden">
+        {/* Row 1: hamburger + logo + search + theme + user */}
+        <div className="px-3 h-14 flex items-center gap-2">
+          <div className="relative shrink-0">
+            <button onClick={() => setMobileNavOpen(o => !o)} aria-label="Menu"
+              className="p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+              <Menu size={20} />
+            </button>
+            {mobileNavOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setMobileNavOpen(false)} />
+                <div className="absolute left-0 top-full mt-1 z-30 w-44 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+                  {navTabs.map(tab => (
+                    <button key={tab} onClick={() => selectTab(tab)}
+                      className={`w-full text-left px-3 py-2 text-sm capitalize flex items-center gap-2 ${
+                        activeTab === tab ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-medium'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>
+                      {tab === 'alerts' && <Bell size={14} />}
+                      {tab === 'settings' && <Settings size={14} />}
+                      {tab === 'admin' && <Shield size={14} />}
+                      {tab === 'dashboard' && <span className="w-3.5 shrink-0" />}
+                      {tab}
+                      {tab === 'alerts' && unacknowledgedCount > 0 && (
+                        <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                          {unacknowledgedCount > 9 ? '9+' : unacknowledgedCount}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <span className="text-2xl shrink-0">🌤️</span>
+
+          <div className="flex-1 min-w-0">
+            <LocationSearch onSelect={handleLocationSelect} />
+          </div>
+
+          <ThemeToggle />
+          {user ? (
+            <button onClick={logout} title="Sign out" className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
+              <LogOut size={16} />
+            </button>
+          ) : (
+            <button onClick={() => setShowAuth(true)} title="Sign in" className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 shrink-0">
+              <User size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Row 2: current location | unit + fetch | saved dropdown */}
+        <div className="px-3 py-2 border-t border-slate-200 dark:border-slate-800/60 flex items-center gap-2">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            {displayLocation ? (
+              <>
+                <MapPin size={15} className="text-sky-500 shrink-0" />
+                <span className="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">{displayLocation.name}</span>
+                <button onClick={toggleSave} title={isSaved ? 'Remove from saved' : 'Save location'}
+                  className={`p-0.5 shrink-0 ${isSaved ? 'text-yellow-400' : 'text-slate-400'}`}>
+                  <Star size={14} fill={isSaved ? 'currentColor' : 'none'} />
+                </button>
+                {user && (
+                  <button onClick={() => user.email_verified_at ? setShowShare(true) : setShowVerifyShare(true)} title="Share" className="p-0.5 text-slate-400 shrink-0">
+                    <Share2 size={13} />
+                  </button>
+                )}
+              </>
+            ) : <span className="text-sm text-slate-400">Locating…</span>}
+          </div>
+
+          <UnitToggle />
+          <button onClick={triggerFetch} disabled={fetching} title="Refresh"
+            className="p-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-white shrink-0">
+            <RefreshCw size={14} className={fetching ? 'animate-spin' : ''} />
+          </button>
+
+          <div className="relative shrink-0">
+            <button onClick={() => setSavedOpen(o => !o)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-300">
+              Saved <ChevronDown size={13} className={savedOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+            {savedOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setSavedOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-30 w-56 max-h-72 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+                  {savedList.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-slate-400">No saved locations</div>
+                  ) : savedList.map(item => (
+                    <div key={item.key} className="flex items-center">
+                      <button onClick={() => { handleLocationSelect(item); setSavedOpen(false) }}
+                        className="flex-1 text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 truncate flex items-center gap-1.5">
+                        <MapPin size={12} className="text-sky-500 shrink-0" />
+                        <span className="truncate">{item.name}</span>
+                      </button>
+                      <button onClick={() => removeSaved(item)} title="Remove" className="px-2 py-2 text-slate-400 hover:text-red-500">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
