@@ -95,9 +95,37 @@ class AdminController extends Controller
         return response()->json(['message' => 'Password reset email sent to ' . $user->email]);
     }
 
-    /** Application-level settings (share anti-spam limits, verification, etc.). */
+    /** Send a test email to the current admin using the saved mail settings. */
+    public function testEmail(Request $request): JsonResponse
+    {
+        \App\Support\MailSettings::apply();
+        $admin = $request->user();
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw(
+                "This is a test email from your Weather Dashboard.\n\n"
+                . "If you received this, your SMTP settings are working correctly.",
+                fn ($m) => $m->to($admin->email)->subject('Weather Dashboard — SMTP test')
+            );
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Failed to send: ' . $e->getMessage()], 422);
+        }
+
+        if (config('mail.default') === 'log') {
+            return response()->json([
+                'message' => 'Mailer is set to "Log", so the test was written to the server log instead of being delivered. Switch to SMTP to deliver to your inbox.',
+            ]);
+        }
+
+        return response()->json(['message' => 'Test email sent to ' . $admin->email . '.']);
+    }
+
+    /** Application-level settings (share anti-spam limits, verification, mail, etc.). */
     public function settings(): JsonResponse
     {
+        // Ensure config reflects the latest stored mail settings before reading.
+        \App\Support\MailSettings::apply();
+
         return response()->json([
             'share_max_recipients'        => AppSetting::getInt('share_max_recipients', 5),
             'share_max_per_day'           => AppSetting::getInt('share_max_per_day', 20),
@@ -106,6 +134,16 @@ class AdminController extends Controller
             'verify_reminder1_days'       => AppSetting::getInt('verify_reminder1_days', 5),
             'verify_reminder2_days'       => AppSetting::getInt('verify_reminder2_days', 3),
             'verify_reminder3_days'       => AppSetting::getInt('verify_reminder3_days', 1),
+            // Effective mail config (admin override, else env fallback). Never
+            // expose the password — just whether one is configured.
+            'mail_mailer'                 => config('mail.default'),
+            'mail_host'                   => config('mail.mailers.smtp.host'),
+            'mail_port'                   => (int) config('mail.mailers.smtp.port'),
+            'mail_username'               => config('mail.mailers.smtp.username'),
+            'mail_encryption'             => config('mail.mailers.smtp.encryption') ?: 'none',
+            'mail_from_address'           => config('mail.from.address'),
+            'mail_from_name'              => config('mail.from.name'),
+            'mail_password_set'           => !empty(config('mail.mailers.smtp.password')),
         ]);
     }
 
@@ -119,10 +157,26 @@ class AdminController extends Controller
             'verify_reminder1_days'       => 'sometimes|integer|min:0|max:365',
             'verify_reminder2_days'       => 'sometimes|integer|min:0|max:365',
             'verify_reminder3_days'       => 'sometimes|integer|min:0|max:365',
+            'mail_mailer'                 => 'sometimes|in:smtp,log',
+            'mail_host'                   => 'sometimes|nullable|string|max:255',
+            'mail_port'                   => 'sometimes|nullable|integer|min:1|max:65535',
+            'mail_username'               => 'sometimes|nullable|string|max:255',
+            'mail_password'               => 'sometimes|nullable|string|max:500',
+            'mail_encryption'             => 'sometimes|in:tls,ssl,none',
+            'mail_from_address'           => 'sometimes|nullable|email',
+            'mail_from_name'              => 'sometimes|nullable|string|max:255',
         ]);
 
         foreach ($validated as $key => $value) {
-            AppSetting::put($key, (string) $value);
+            // The SMTP password is encrypted at rest and only updated when a new
+            // value is supplied (empty submission keeps the existing password).
+            if ($key === 'mail_password') {
+                if ($value !== null && $value !== '') {
+                    AppSetting::put('mail_password', \Illuminate\Support\Facades\Crypt::encryptString($value));
+                }
+                continue;
+            }
+            AppSetting::put($key, (string) ($value ?? ''));
         }
 
         return $this->settings();

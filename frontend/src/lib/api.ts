@@ -99,8 +99,13 @@ export const api = {
       patch(`/admin/users/${id}`, data),
     sendReset: (id: number) => post(`/admin/users/${id}/send-reset`),
     getSettings: () => get('/admin/settings'),
-    updateSettings: (data: Partial<{ share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number }>) =>
-      patch('/admin/settings', data),
+    updateSettings: (data: Partial<{
+      share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number
+      verify_deadline_days: number; verify_reminder1_days: number; verify_reminder2_days: number; verify_reminder3_days: number
+      mail_mailer: string; mail_host: string | null; mail_port: number | null; mail_username: string | null
+      mail_password: string; mail_encryption: string; mail_from_address: string | null; mail_from_name: string | null
+    }>) => patch('/admin/settings', data),
+    testEmail: () => post('/admin/settings/test-email'),
   },
   share: {
     limits: () => get('/share/limits'),

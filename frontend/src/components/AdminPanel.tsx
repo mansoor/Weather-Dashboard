@@ -30,12 +30,30 @@ export default function AdminPanel() {
   type ShareSettings = {
     share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number
     verify_deadline_days: number; verify_reminder1_days: number; verify_reminder2_days: number; verify_reminder3_days: number
+    mail_mailer: string; mail_host: string; mail_port: number; mail_username: string
+    mail_encryption: string; mail_from_address: string; mail_from_name: string
+    mail_password: string; mail_password_set: boolean
   }
   const [settings, setSettings] = useState<ShareSettings | null>(null)
-  type SettingsCard = 'share' | 'verify'
+  type SettingsCard = 'share' | 'verify' | 'mail'
   const [savingCard, setSavingCard] = useState<SettingsCard | null>(null)
   const [savedCard, setSavedCard] = useState<SettingsCard | null>(null)
   const [settingsError, setSettingsError] = useState<SettingsCard | null>(null)
+  const [testingEmail, setTestingEmail] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const sendTestEmail = async () => {
+    setTestingEmail(true)
+    setTestResult(null)
+    try {
+      const res = await api.admin.testEmail() as { message: string }
+      setTestResult({ ok: true, text: res.message })
+    } catch (e: any) {
+      setTestResult({ ok: false, text: e.message || 'Failed to send test email.' })
+    } finally {
+      setTestingEmail(false)
+    }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -50,16 +68,27 @@ export default function AdminPanel() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
-    api.admin.getSettings().then(d => setSettings(d as ShareSettings)).catch(() => {})
+    // GET never returns the password — seed the input empty.
+    api.admin.getSettings().then(d => setSettings({ ...(d as ShareSettings), mail_password: '' })).catch(() => {})
   }, [])
+
+  const cardKeys: Record<SettingsCard, (keyof ShareSettings)[]> = {
+    share: ['share_max_recipients', 'share_max_per_day', 'share_max_per_email_per_day'],
+    verify: ['verify_deadline_days', 'verify_reminder1_days', 'verify_reminder2_days', 'verify_reminder3_days'],
+    mail: ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_encryption', 'mail_from_address', 'mail_from_name'],
+  }
 
   const saveSettings = async (card: SettingsCard) => {
     if (!settings) return
     setSavingCard(card)
     setSettingsError(null)
+    // Send only this card's fields so saving one card can't overwrite another.
+    const payload: Record<string, unknown> = {}
+    for (const k of cardKeys[card]) payload[k] = settings[k]
+    if (card === 'mail' && settings.mail_password) payload.mail_password = settings.mail_password
     try {
-      const updated = await api.admin.updateSettings(settings) as ShareSettings
-      setSettings(updated)
+      const updated = await api.admin.updateSettings(payload) as ShareSettings
+      setSettings({ ...updated, mail_password: '' })
       setSavedCard(card)
       setTimeout(() => setSavedCard(prev => (prev === card ? null : prev)), 3000)
     } catch {
@@ -149,7 +178,7 @@ export default function AdminPanel() {
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
                   <input
                     type="number" min={1}
-                    value={settings[f.key]}
+                    value={settings[f.key] as number}
                     onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
                     className={`w-28 ${inputCls}`}
                   />
@@ -186,7 +215,7 @@ export default function AdminPanel() {
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
                   <input
                     type="number" min={0}
-                    value={settings[f.key]}
+                    value={settings[f.key] as number}
                     onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
                     className={`w-28 ${inputCls}`}
                   />
@@ -202,6 +231,88 @@ export default function AdminPanel() {
               {savedCard === 'verify' && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle size={13} /> Saved</span>}
               {settingsError === 'verify' && <span className="text-xs text-red-500">Failed to save</span>}
             </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Loading…</p>
+        )}
+      </div>
+
+      {/* SMTP / email delivery */}
+      <div className="glass rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Mail size={16} className="text-sky-500" />
+          <h2 className="font-semibold text-slate-800 dark:text-slate-200">Email (SMTP) Settings</h2>
+          <span className="text-xs text-slate-500 ml-1">— overrides .env; blank fields fall back to environment</span>
+        </div>
+        {settings ? (
+          <div>
+            <div className="flex flex-wrap gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Mailer</label>
+                <select value={settings.mail_mailer} onChange={e => setSettings({ ...settings, mail_mailer: e.target.value })} className={`w-36 ${inputCls}`}>
+                  <option value="smtp">SMTP</option>
+                  <option value="log">Log (no send)</option>
+                </select>
+                <div className="text-[11px] text-slate-400 mt-0.5">delivery driver</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Host</label>
+                <input type="text" value={settings.mail_host ?? ''} onChange={e => setSettings({ ...settings, mail_host: e.target.value })} className={`w-48 ${inputCls}`} placeholder="smtp.example.com" />
+                <div className="text-[11px] text-slate-400 mt-0.5">SMTP server</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Port</label>
+                <input type="number" min={1} value={settings.mail_port} onChange={e => setSettings({ ...settings, mail_port: parseInt(e.target.value) || 0 })} className={`w-24 ${inputCls}`} />
+                <div className="text-[11px] text-slate-400 mt-0.5">587 / 465</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Encryption</label>
+                <select value={settings.mail_encryption} onChange={e => setSettings({ ...settings, mail_encryption: e.target.value })} className={`w-28 ${inputCls}`}>
+                  <option value="tls">TLS</option>
+                  <option value="ssl">SSL</option>
+                  <option value="none">None</option>
+                </select>
+                <div className="text-[11px] text-slate-400 mt-0.5">&nbsp;</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Username</label>
+                <input type="text" value={settings.mail_username ?? ''} onChange={e => setSettings({ ...settings, mail_username: e.target.value })} className={`w-48 ${inputCls}`} autoComplete="off" />
+                <div className="text-[11px] text-slate-400 mt-0.5">&nbsp;</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Password</label>
+                <input type="password" value={settings.mail_password} onChange={e => setSettings({ ...settings, mail_password: e.target.value })}
+                  placeholder={settings.mail_password_set ? '•••••••• (set)' : ''} className={`w-48 ${inputCls}`} autoComplete="new-password" />
+                <div className="text-[11px] text-slate-400 mt-0.5">blank = keep current</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From address</label>
+                <input type="email" value={settings.mail_from_address ?? ''} onChange={e => setSettings({ ...settings, mail_from_address: e.target.value })} className={`w-52 ${inputCls}`} placeholder="alerts@example.com" />
+                <div className="text-[11px] text-slate-400 mt-0.5">&nbsp;</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">From name</label>
+                <input type="text" value={settings.mail_from_name ?? ''} onChange={e => setSettings({ ...settings, mail_from_name: e.target.value })} className={`w-48 ${inputCls}`} />
+                <div className="text-[11px] text-slate-400 mt-0.5">&nbsp;</div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button onClick={() => saveSettings('mail')} disabled={savingCard === 'mail'}
+                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+                <Save size={13} /> {savingCard === 'mail' ? 'Saving…' : 'Save'}
+              </button>
+              {savedCard === 'mail' && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle size={13} /> Saved</span>}
+              {settingsError === 'mail' && <span className="text-xs text-red-500">Failed to save</span>}
+              <button onClick={sendTestEmail} disabled={testingEmail}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 disabled:opacity-50 rounded-md text-sm"
+                title="Sends a test email to your own address using the saved settings">
+                <Mail size={13} /> {testingEmail ? 'Sending…' : 'Send test email'}
+              </button>
+            </div>
+            {testResult && (
+              <p className={`text-xs mt-2 ${testResult.ok ? 'text-emerald-500' : 'text-red-500'}`}>{testResult.text}</p>
+            )}
+            <p className="text-[11px] text-slate-400 mt-2">Save before testing — the test uses the saved settings.</p>
           </div>
         ) : (
           <p className="text-sm text-slate-400">Loading…</p>

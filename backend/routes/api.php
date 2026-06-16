@@ -90,6 +90,7 @@ Route::middleware(['auth:sanctum', 'is_admin'])->prefix('admin')->group(function
     Route::post('/users/{id}/send-reset', [AdminController::class, 'sendResetLink']);
     Route::get('/settings', [AdminController::class, 'settings']);
     Route::patch('/settings', [AdminController::class, 'updateSettings']);
+    Route::post('/settings/test-email', [AdminController::class, 'testEmail']);
 });
 
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'time' => now()]));
