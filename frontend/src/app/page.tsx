@@ -630,7 +630,7 @@ export default function Dashboard() {
       </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/50 dark:border-red-800/50 dark:text-red-300 rounded-lg text-sm">{error}</div>
         )}
@@ -643,7 +643,7 @@ export default function Dashboard() {
         ) : (
           <>
             {activeTab === 'dashboard' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {current ? (
                   <>
                     <CurrentConditions reading={current} stats={stats} />
@@ -652,7 +652,7 @@ export default function Dashboard() {
                     <MetricCards reading={current} />
                     <AirQuality reading={current} />
                     {forecast && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <SunriseSunset
                           sunrise={forecast.sunrise}
                           sunset={forecast.sunset}
@@ -668,10 +668,10 @@ export default function Dashboard() {
                         <DailyForecast daily={forecast.daily} />
                       </div>
                     )}
-                    <div className="glass rounded-xl p-5">
-                      <div className="flex items-center justify-between mb-4">
+                    <div className="glass rounded-xl p-4 sm:p-5">
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
                         <h2 className="font-semibold text-slate-800 dark:text-slate-200">History</h2>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5 sm:gap-2">
                           {[6, 24, 48, 168].map(h => (
                             <button key={h} onClick={() => setHistoryHours(h)}
                               className={`px-2 py-1 rounded text-xs transition-colors ${historyHours === h ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 dark:bg-slate-700 dark:border-transparent dark:text-slate-400 dark:hover:bg-slate-600'}`}>

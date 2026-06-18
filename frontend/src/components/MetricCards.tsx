@@ -52,17 +52,17 @@ export default function MetricCards({ reading }: { reading: WeatherReading }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
       {cards.map(card => {
         const Icon = card.icon
         return (
-          <div key={card.key} className={`glass rounded-xl p-4 ${card.bg}`}>
-            <div className="flex items-center justify-between mb-3">
+          <div key={card.key} className={`glass rounded-xl p-3 sm:p-4 ${card.bg}`}>
+            <div className="flex items-center justify-between mb-1.5 sm:mb-3">
               <span className="text-slate-600 dark:text-slate-400 text-xs font-medium">{card.label}</span>
               <Icon size={14} className={card.color} />
             </div>
-            <div className={`text-xl font-semibold ${card.color}`}>{card.main}</div>
-            <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">{card.sub}</div>
+            <div className={`text-lg sm:text-xl font-semibold ${card.color}`}>{card.main}</div>
+            <div className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 mt-0.5 sm:mt-1">{card.sub}</div>
           </div>
         )
       })}

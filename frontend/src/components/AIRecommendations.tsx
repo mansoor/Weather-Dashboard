@@ -155,7 +155,7 @@ export default function AIRecommendations({ reading, forecast }: { reading: Weat
   const recs = getRecs(reading, forecast)
 
   return (
-    <div className="glass rounded-xl p-5">
+    <div className="glass rounded-xl p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-lg">🤖</span>

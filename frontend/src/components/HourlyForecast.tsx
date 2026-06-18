@@ -69,7 +69,7 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
   }).join(' ')
 
   return (
-    <div className="glass rounded-xl p-5">
+    <div className="glass rounded-xl p-4 sm:p-5">
       <h2 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Hourly Forecast</h2>
 
       <div className="relative">
