@@ -92,7 +92,7 @@ export default function ActivitySuitability({ reading }: { reading: WeatherReadi
 
   return (
     <div
-      className="flex flex-wrap items-center gap-1.5 justify-end"
+      className="flex flex-wrap items-center gap-1.5 justify-start sm:justify-end w-full sm:w-auto"
       title="Experimental — activity suitability for current conditions"
     >
       {activities.map(a => {
