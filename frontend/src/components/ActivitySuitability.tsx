@@ -92,7 +92,7 @@ export default function ActivitySuitability({ reading }: { reading: WeatherReadi
 
   return (
     <div
-      className="flex flex-wrap items-center gap-1.5 justify-start sm:justify-end w-full sm:w-auto"
+      className="flex flex-wrap items-center gap-1 sm:gap-1.5 justify-end"
       title="Experimental — activity suitability for current conditions"
     >
       {activities.map(a => {
@@ -102,7 +102,7 @@ export default function ActivitySuitability({ reading }: { reading: WeatherReadi
           <div
             key={a.key}
             title={`${a.label}: ${verdict(a.score)} (${a.score}/100)`}
-            className={`flex flex-col items-center gap-0.5 w-[46px] shrink-0 rounded-md py-1 border transition-all ${
+            className={`flex flex-col items-center gap-0.5 w-[38px] sm:w-[46px] shrink-0 rounded-md py-1 border transition-all ${
               good
                 ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-700/60'
                 : fair
@@ -111,13 +111,13 @@ export default function ActivitySuitability({ reading }: { reading: WeatherReadi
             }`}
           >
             <span
-              className="text-lg leading-none"
+              className="text-base sm:text-lg leading-none"
               style={{ filter: good ? 'none' : fair ? 'grayscale(0.4)' : 'grayscale(1)', opacity: good ? 1 : fair ? 0.85 : 0.4 }}
             >
               {a.emoji}
             </span>
             <span
-              className={`text-[9px] font-medium leading-none ${
+              className={`text-[8px] sm:text-[9px] font-medium leading-none ${
                 good ? 'text-emerald-700 dark:text-emerald-400'
                 : fair ? 'text-amber-700 dark:text-amber-500'
                 : 'text-slate-400 dark:text-slate-500'
