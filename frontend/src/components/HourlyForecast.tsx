@@ -30,6 +30,15 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
   const [canRight, setCanRight] = useState(true)
+  // Narrower columns on phones so 1–2 more hours are visible.
+  const [colW, setColW] = useState(72)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    const update = () => setColW(mq.matches ? 54 : 72)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   const checkScroll = () => {
     const el = scrollRef.current
@@ -60,10 +69,10 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
   const range = maxT - minT || 1
 
   // Build SVG polyline points (normalized 0-40px height, inverted)
-  const svgW = hourly.length * 72
+  const svgW = hourly.length * colW
   const svgH = 48
   const points = hourly.map((h, i) => {
-    const x = i * 72 + 36
+    const x = i * colW + colW / 2
     const y = svgH - 8 - ((( h.temperature ?? minT) - minT) / range) * (svgH - 16)
     return `${x},${y}`
   }).join(' ')
@@ -105,7 +114,7 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
                 strokeLinejoin="round"
               />
               {hourly.map((h, i) => {
-                const x = i * 72 + 36
+                const x = i * colW + colW / 2
                 const y = svgH - 8 - (((h.temperature ?? minT) - minT) / range) * (svgH - 16)
                 return <circle key={i} cx={x} cy={y} r="3" fill="#f97316" className="opacity-80" />
               })}
@@ -117,7 +126,7 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
                 const isNow = i === 0
                 const precip = (h.precipitation_probability ?? 0) >= 20
                 return (
-                  <div key={i} style={{ width: 72 }}
+                  <div key={i} style={{ width: colW }}
                     className={`flex flex-col items-center gap-1 pt-1 pb-2 shrink-0 rounded-lg ${isNow ? 'bg-sky-50 dark:bg-sky-900/20' : ''}`}>
                     {/* Time */}
                     <span className={`text-xs font-medium ${isNow ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
