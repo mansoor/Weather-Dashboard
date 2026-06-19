@@ -13,17 +13,16 @@ interface Props {
   currentTemp?: number | null
 }
 
-function formatHour(isoTime: string, timezone: string | null): string {
-  try {
-    const date = new Date(isoTime)
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone || undefined,
-      hour: 'numeric',
-      hour12: true,
-    }).format(date)
-  } catch {
-    return isoTime.slice(11, 16)
-  }
+// `isoTime` is "YYYY-MM-DDTHH:MM" already in the LOCATION's local time, so we
+// format the hour straight from the string. (Using new Date()+timeZone would
+// double-convert via the device timezone and shift the labels.)
+function formatHour(isoTime: string): string {
+  const m = isoTime.match(/T(\d{2}):/)
+  if (!m) return isoTime
+  let h = parseInt(m[1], 10)
+  const ampm = h < 12 ? 'AM' : 'PM'
+  h = h % 12 === 0 ? 12 : h % 12
+  return `${h} ${ampm}`
 }
 
 export default function HourlyForecast({ hourly: rawHourly, timezone, aqiScale = 'eu', currentTemp }: Props) {
@@ -149,7 +148,7 @@ export default function HourlyForecast({ hourly: rawHourly, timezone, aqiScale =
                     className={`flex flex-col items-center gap-1 pt-1 pb-2 shrink-0 rounded-lg transition-opacity ${isNow ? 'bg-sky-50 dark:bg-sky-900/20' : ''} ${past ? 'opacity-50' : ''}`}>
                     {/* Time */}
                     <span className={`text-xs font-medium ${isNow ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
-                      {isNow ? 'Now' : formatHour(h.time, timezone)}
+                      {isNow ? 'Now' : formatHour(h.time)}
                     </span>
                     {/* Emoji */}
                     <span className="text-xl leading-none">{weatherEmoji(h.weather_code, h.is_day)}</span>

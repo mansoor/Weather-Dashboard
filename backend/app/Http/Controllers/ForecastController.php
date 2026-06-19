@@ -151,7 +151,7 @@ class ForecastController extends Controller
             'daily'       => $daily,
             'day_hourly'  => $dayHourly,
             'aqi_scale'   => $aqiScale,
-        ]);
+        ])->header('Cache-Control', 'no-store, max-age=0');
     }
 
     /**

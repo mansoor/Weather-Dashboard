@@ -18,6 +18,9 @@ async function request<T>(method: string, path: string, body?: unknown, params?:
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    // Weather data must always be fresh — never serve a stale cached response
+    // (this is what caused the hourly forecast to show an old "Now" hour).
+    cache: 'no-store',
   })
 
   if (res.status === 401) {
