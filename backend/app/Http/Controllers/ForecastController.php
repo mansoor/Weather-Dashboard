@@ -53,16 +53,22 @@ class ForecastController extends Controller
         $aqiScale = str_starts_with($data['timezone'] ?? 'UTC', 'America/') ? 'us' : 'eu';
         $aqiMap   = $aqiBoth[$aqiScale] ?? [];
 
-        // Slice hourly to next 24 h from current hour
+        // Current hour, derived from Open-Meteo's own time (robust to server
+        // clock drift) with a fallback to the server clock.
+        $apiNow      = $data['current']['time'] ?? now()->setTimezone($data['timezone'] ?? 'UTC')->format('Y-m-d\TH:i');
+        $nowHour     = substr($apiNow, 0, 13) . ':00';   // e.g. 2026-06-18T16:00
+
+        // Window: 12 h of trailing history + the current hour + 24 h ahead.
         $hourlyTimes = $data['hourly']['time'] ?? [];
-        $nowHour     = now()->setTimezone($data['timezone'] ?? 'UTC')->format('Y-m-d\TH:00');
         $startIdx    = 0;
         foreach ($hourlyTimes as $i => $t) {
             if ($t >= $nowHour) { $startIdx = $i; break; }
         }
+        $pastHours = 12;
+        $from = max(0, $startIdx - $pastHours);
 
         $hourly = [];
-        for ($i = $startIdx; $i < min($startIdx + 25, count($hourlyTimes)); $i++) {
+        for ($i = $from; $i < min($startIdx + 25, count($hourlyTimes)); $i++) {
             $hourly[] = [
                 'time'                    => $hourlyTimes[$i],
                 'temperature'             => $data['hourly']['temperature_2m'][$i] ?? null,
@@ -73,6 +79,7 @@ class ForecastController extends Controller
                 'wind_speed'              => $data['hourly']['wind_speed_10m'][$i] ?? null,
                 'wind_direction'          => $data['hourly']['wind_direction_10m'][$i] ?? null,
                 'is_day'                  => ($data['hourly']['is_day'][$i] ?? 1) === 1,
+                'is_past'                 => $hourlyTimes[$i] < $nowHour,
                 'humidity'                => $data['hourly']['relative_humidity_2m'][$i] ?? null,
                 'dew_point'               => $data['hourly']['dew_point_2m'][$i] ?? null,
                 'uv_index'                => $data['hourly']['uv_index'][$i] ?? null,

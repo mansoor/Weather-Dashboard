@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Wind, Droplets, Eye, ArrowUp, ArrowDown } from 'lucide-react'
+import { Wind, Droplets, Eye, ArrowUp, ArrowDown, Leaf } from 'lucide-react'
 import type { WeatherReading, WeatherStats } from '@/types/weather'
-import { weatherEmoji, windDirection, fmt } from '@/lib/utils'
+import { weatherEmoji, windDirection, fmt, aqiHex, aqiLabel } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 
 function useLocalClock(timezone: string | null) {
@@ -63,6 +63,14 @@ export default function CurrentConditions({ reading, stats }: { reading: Weather
           <StatPill icon={<Droplets size={14} />} label="Humidity" value={`${fmt(reading.humidity, 0)}%`} />
           <StatPill icon={<Wind size={14} />} label="Wind" value={`${fmtWind(reading.wind_speed, 1)} ${windDirection(reading.wind_direction)}`} />
           <StatPill icon={<Eye size={14} />} label="Visibility" value={visStr} />
+          {reading.aqi != null && (
+            <StatPill
+              icon={<Leaf size={14} />}
+              label={`Air Quality (${reading.aqi_scale.toUpperCase()})`}
+              value={`${reading.aqi} ${aqiLabel(reading.aqi, reading.aqi_scale)}`}
+              valueStyle={{ color: aqiHex(reading.aqi, reading.aqi_scale) }}
+            />
+          )}
           {stats && (
             <>
               <StatPill icon={<ArrowUp size={14} className="text-red-400" />} label="High" value={fmtTemp(stats.temp_max, 1)} />
@@ -90,13 +98,13 @@ export default function CurrentConditions({ reading, stats }: { reading: Weather
   )
 }
 
-function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatPill({ icon, label, value, valueStyle }: { icon: React.ReactNode; label: string; value: string; valueStyle?: React.CSSProperties }) {
   return (
     <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100 border border-slate-200 dark:bg-slate-700/50 dark:border-transparent rounded-lg px-2 py-1.5 sm:px-3 sm:py-2">
       <span className="text-slate-500 dark:text-slate-400 shrink-0">{icon}</span>
       <div className="min-w-0">
         <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-500 font-medium">{label}</div>
-        <div className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{value}</div>
+        <div className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" style={valueStyle}>{value}</div>
       </div>
     </div>
   )

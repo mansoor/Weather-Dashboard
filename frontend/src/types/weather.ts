@@ -125,6 +125,7 @@ export interface HourlyPoint {
   wind_speed: number | null
   wind_direction: number | null
   is_day: boolean
+  is_past: boolean
   humidity: number | null
   dew_point: number | null
   uv_index: number | null

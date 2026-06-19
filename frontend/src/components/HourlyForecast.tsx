@@ -10,6 +10,7 @@ interface Props {
   hourly: HourlyPoint[]
   timezone: string | null
   aqiScale?: 'us' | 'eu'
+  currentTemp?: number | null
 }
 
 function formatHour(isoTime: string, timezone: string | null): string {
@@ -25,9 +26,16 @@ function formatHour(isoTime: string, timezone: string | null): string {
   }
 }
 
-export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Props) {
+export default function HourlyForecast({ hourly: rawHourly, timezone, aqiScale = 'eu', currentTemp }: Props) {
+  // The "Now" column is the first non-past hour (the window includes ~12 h of
+  // trailing history). Override its temperature with the live current reading.
+  const nowIndex = Math.max(0, rawHourly.findIndex(h => !h.is_past))
+  const hourly = currentTemp != null && rawHourly.length
+    ? rawHourly.map((h, i) => i === nowIndex ? { ...h, temperature: currentTemp } : h)
+    : rawHourly
   const { fmtTemp, fmtWind } = useSettings()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const didScrollToNow = useRef(false)
   const [canLeft, setCanLeft] = useState(false)
   const [canRight, setCanRight] = useState(true)
   // Narrower columns on phones so 1–2 more hours are visible.
@@ -56,6 +64,16 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
     ro.observe(el)
     return () => { el.removeEventListener('scroll', checkScroll); ro.disconnect() }
   }, [hourly.length])
+
+  // On first load, scroll so "Now" sits at the left edge (past hours are to the
+  // left, reachable by scrolling back). Only once, so refreshes don't jump.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || didScrollToNow.current || !rawHourly.length) return
+    el.scrollLeft = nowIndex * colW
+    didScrollToNow.current = true
+    checkScroll()
+  }, [nowIndex, colW, rawHourly.length])
 
   const scroll = (dir: 'left' | 'right') =>
     scrollRef.current?.scrollBy({ left: dir === 'left' ? -240 : 240, behavior: 'smooth' })
@@ -123,11 +141,12 @@ export default function HourlyForecast({ hourly, timezone, aqiScale = 'eu' }: Pr
             {/* Hour columns */}
             <div className="flex">
               {hourly.map((h, i) => {
-                const isNow = i === 0
+                const isNow = i === nowIndex
+                const past = h.is_past
                 const precip = (h.precipitation_probability ?? 0) >= 20
                 return (
                   <div key={i} style={{ width: colW }}
-                    className={`flex flex-col items-center gap-1 pt-1 pb-2 shrink-0 rounded-lg ${isNow ? 'bg-sky-50 dark:bg-sky-900/20' : ''}`}>
+                    className={`flex flex-col items-center gap-1 pt-1 pb-2 shrink-0 rounded-lg transition-opacity ${isNow ? 'bg-sky-50 dark:bg-sky-900/20' : ''} ${past ? 'opacity-50' : ''}`}>
                     {/* Time */}
                     <span className={`text-xs font-medium ${isNow ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
                       {isNow ? 'Now' : formatHour(h.time, timezone)}

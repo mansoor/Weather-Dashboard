@@ -648,7 +648,7 @@ export default function Dashboard() {
                   <>
                     <CurrentConditions reading={current} stats={stats} />
                     <AIRecommendations reading={current} forecast={forecast} />
-                    {forecast && <HourlyForecast hourly={forecast.hourly} timezone={forecast.timezone} aqiScale={forecast.aqi_scale} />}
+                    {forecast && <HourlyForecast hourly={forecast.hourly} timezone={forecast.timezone} aqiScale={forecast.aqi_scale} currentTemp={current?.temperature} />}
                     <MetricCards reading={current} />
                     <AirQuality reading={current} />
                     {forecast && (
