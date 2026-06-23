@@ -134,6 +134,10 @@ class AdminController extends Controller
             'verify_reminder1_days'       => AppSetting::getInt('verify_reminder1_days', 5),
             'verify_reminder2_days'       => AppSetting::getInt('verify_reminder2_days', 3),
             'verify_reminder3_days'       => AppSetting::getInt('verify_reminder3_days', 1),
+            // Max personal notification targets per role (0 = unlimited).
+            'notify_max_targets_user'        => AppSetting::getInt('notify_max_targets_user', 5),
+            'notify_max_targets_admin'       => AppSetting::getInt('notify_max_targets_admin', 5),
+            'notify_max_targets_super_admin' => AppSetting::getInt('notify_max_targets_super_admin', 5),
             // Effective mail config (admin override, else env fallback). Never
             // expose the password — just whether one is configured.
             'mail_mailer'                 => config('mail.default'),
@@ -157,6 +161,9 @@ class AdminController extends Controller
             'verify_reminder1_days'       => 'sometimes|integer|min:0|max:365',
             'verify_reminder2_days'       => 'sometimes|integer|min:0|max:365',
             'verify_reminder3_days'       => 'sometimes|integer|min:0|max:365',
+            'notify_max_targets_user'        => 'sometimes|integer|min:0|max:100',
+            'notify_max_targets_admin'       => 'sometimes|integer|min:0|max:100',
+            'notify_max_targets_super_admin' => 'sometimes|integer|min:0|max:100',
             'mail_mailer'                 => 'sometimes|in:smtp,log',
             'mail_host'                   => 'sometimes|nullable|string|max:255',
             'mail_port'                   => 'sometimes|nullable|integer|min:1|max:65535',

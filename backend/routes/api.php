@@ -6,6 +6,7 @@ use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\GeocodingController;
+use App\Http\Controllers\NotificationTargetController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\ThresholdController;
@@ -65,8 +66,14 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->prefix('user')->group(function () {
     Route::get('/settings', [UserSettingController::class, 'show']);
     Route::put('/settings', [UserSettingController::class, 'update']);
-    Route::post('/settings/test-notification', [UserSettingController::class, 'testNotification']);
     Route::post('/password', [UserPasswordController::class, 'changePassword']);
+
+    // Personal notification targets (Apprise URLs)
+    Route::get('/notifications', [NotificationTargetController::class, 'index']);
+    Route::post('/notifications', [NotificationTargetController::class, 'store']);
+    Route::put('/notifications/{id}', [NotificationTargetController::class, 'update']);
+    Route::delete('/notifications/{id}', [NotificationTargetController::class, 'destroy']);
+    Route::post('/notifications/{id}/test', [NotificationTargetController::class, 'test']);
 
     Route::get('/locations', [UserLocationController::class, 'index']);
     Route::post('/locations', [UserLocationController::class, 'store']);

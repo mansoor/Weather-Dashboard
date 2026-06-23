@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\AlertThreshold;
+use App\Models\NotificationTarget;
 use App\Models\WeatherAlert;
 use App\Models\WeatherReading;
 use App\Notifications\WeatherAlertNotification;
+use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -30,14 +32,10 @@ class AlertService
         $thresholds = AlertThreshold::where('enabled', true)->get();
 
         foreach ($thresholds as $threshold) {
-            // If this threshold is scoped to a location, skip readings from other locations
-            if ($threshold->monitor_lat !== null && $threshold->monitor_lon !== null) {
-                if (
-                    abs($reading->latitude - $threshold->monitor_lat) > 0.05 ||
-                    abs($reading->longitude - $threshold->monitor_lon) > 0.05
-                ) {
-                    continue;
-                }
+            // If this threshold is scoped to one or more locations, skip readings
+            // that don't match any of them. An empty/null scope means "all".
+            if (!$this->matchesLocation($threshold, $reading)) {
+                continue;
             }
 
             $field = $this->metricMap[$threshold->metric] ?? $threshold->metric;
@@ -51,13 +49,97 @@ class AlertService
                 $alert = $this->createAlert($threshold, $reading, $value);
                 $triggered[] = $alert;
 
+                $notified = false;
+
+                // Legacy global email channel (ALERT_EMAIL env)
                 if ($threshold->notify_email) {
                     $this->sendNotification($alert);
+                    $notified = true;
+                }
+
+                // Fan out to every user's enabled personal notification targets
+                if ($this->dispatchToUserTargets($alert)) {
+                    $notified = true;
+                }
+
+                if ($notified && $alert->notified_at === null) {
+                    $alert->update(['notified_at' => now()]);
                 }
             }
         }
 
         return $triggered;
+    }
+
+    /**
+     * Send the alert to every enabled personal notification target across all
+     * users, via the Apprise API. Returns true if a dispatch was attempted.
+     */
+    private function dispatchToUserTargets(WeatherAlert $alert): bool
+    {
+        $appriseUrl = rtrim(config('apprise.url', ''), '/');
+        if (empty($appriseUrl)) {
+            return false;
+        }
+
+        $urls = NotificationTarget::where('enabled', true)
+            ->pluck('url')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($urls->isEmpty()) {
+            return false;
+        }
+
+        $typeMap = ['critical' => 'failure', 'warning' => 'warning', 'info' => 'info'];
+
+        try {
+            (new Client(['timeout' => 10]))->post("{$appriseUrl}/notify", [
+                'json' => [
+                    'urls'  => $urls->implode(','),
+                    'title' => '[Weather Alert] '.$alert->title,
+                    'body'  => $alert->message
+                        .' | Severity: '.ucfirst($alert->severity)
+                        .' | '.$alert->created_at->toDateTimeString(),
+                    'type'  => $typeMap[$alert->severity] ?? 'info',
+                ],
+            ]);
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('Failed to dispatch alert to user notification targets: '.$e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Does this reading fall within the threshold's monitored location scope?
+     * Prefers the multi-location list; falls back to the legacy single
+     * monitor_lat/lon. Empty scope = all locations.
+     */
+    private function matchesLocation(AlertThreshold $threshold, WeatherReading $reading): bool
+    {
+        $locations = $threshold->monitor_locations ?? [];
+
+        if (!empty($locations)) {
+            foreach ($locations as $loc) {
+                if (
+                    abs($reading->latitude - (float) $loc['latitude']) <= 0.05 &&
+                    abs($reading->longitude - (float) $loc['longitude']) <= 0.05
+                ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Legacy single-location scope
+        if ($threshold->monitor_lat !== null && $threshold->monitor_lon !== null) {
+            return abs($reading->latitude - $threshold->monitor_lat) <= 0.05
+                && abs($reading->longitude - $threshold->monitor_lon) <= 0.05;
+        }
+
+        return true; // all locations
     }
 
     private function breaches(float $value, string $operator, float $threshold): bool

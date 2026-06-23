@@ -34,6 +34,21 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(UserSetting::class);
     }
 
+    public function notificationTargets(): HasMany
+    {
+        return $this->hasMany(NotificationTarget::class);
+    }
+
+    /**
+     * Maximum number of notification targets this user may create, based on
+     * their role. 0 means unlimited. Falls back to a default of 5.
+     */
+    public function maxNotificationTargets(): int
+    {
+        $key = 'notify_max_targets_' . ($this->role ?? 'user');
+        return \App\Models\AppSetting::getInt($key, 5);
+    }
+
     /** Return a consistent user payload for API responses. */
     public function sendEmailVerificationNotification(): void
     {

@@ -52,41 +52,55 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
     ),
   ]
 
-  // Derive selected index from what's stored on the first threshold
-  const storedLat = thresholds[0]?.monitor_lat ?? null
-  const storedLon = thresholds[0]?.monitor_lon ?? null
+  // Derive the stored monitored-location set from the first threshold. Supports
+  // the new multi-location list and the legacy single monitor_lat/lon.
+  const storedLocations: MonitorLocation[] = (() => {
+    const t = thresholds[0]
+    if (!t) return []
+    if (t.monitor_locations && t.monitor_locations.length) return t.monitor_locations
+    if (t.monitor_lat != null && t.monitor_lon != null) {
+      return [{ name: t.monitor_name ?? 'Location', latitude: t.monitor_lat, longitude: t.monitor_lon }]
+    }
+    return []
+  })()
 
-  // Which option chip is selected — derive from stored value; -1 = "All locations"
-  const [selectedIdx, setSelectedIdx] = useState<number>(-1)
+  const sameLoc = (a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) =>
+    Math.abs(a.latitude - b.latitude) < 0.05 && Math.abs(a.longitude - b.longitude) < 0.05
+
+  // Selected option indices into locationOptions; empty = "All locations".
+  const [selectedIdxs, setSelectedIdxs] = useState<number[]>([])
 
   useEffect(() => {
-    if (storedLat === null) { setSelectedIdx(-1); return }
-    const idx = locationOptions.findIndex(l =>
-      Math.abs(l.latitude - storedLat) < 0.05 &&
-      Math.abs(l.longitude - (storedLon ?? 0)) < 0.05
-    )
-    setSelectedIdx(idx >= 0 ? idx : -1)
+    const idxs = storedLocations
+      .map(sl => locationOptions.findIndex(lo => sameLoc(lo, sl)))
+      .filter(i => i >= 0)
+    setSelectedIdxs(idxs)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thresholds.length, storedLat, storedLon])
+  }, [thresholds.length, locationOptions.length])
 
-  const selectedLoc = selectedIdx >= 0 ? locationOptions[selectedIdx] : null
+  const toggleIdx = (i: number) =>
+    setSelectedIdxs(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])
+
+  const selectedLocs: MonitorLocation[] = selectedIdxs
+    .map(i => locationOptions[i])
+    .filter(Boolean)
 
   const applyLocationToAll = async () => {
     setSavingLoc(true)
     setLocSaved(false)
+    const monitor_locations = selectedLocs.length ? selectedLocs : null
     try {
       await Promise.all(thresholds.map(t =>
         api.thresholds.update(t.id, {
-          monitor_lat: selectedLoc?.latitude ?? null,
-          monitor_lon: selectedLoc?.longitude ?? null,
-          monitor_name: selectedLoc?.name ?? null,
+          monitor_locations,
+          // Clear the legacy single-location columns so they don't conflict.
+          monitor_lat: null,
+          monitor_lon: null,
+          monitor_name: null,
         })
       ))
       setThresholds(prev => prev.map(t => ({
-        ...t,
-        monitor_lat: selectedLoc?.latitude ?? null,
-        monitor_lon: selectedLoc?.longitude ?? null,
-        monitor_name: selectedLoc?.name ?? null,
+        ...t, monitor_locations, monitor_lat: null, monitor_lon: null, monitor_name: null,
       })))
       setLocSaved(true)
       setTimeout(() => setLocSaved(false), 3000)
@@ -95,12 +109,11 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
     }
   }
 
-  const locationChanged = selectedIdx >= 0
-    ? selectedLoc && (
-        Math.abs((storedLat ?? -999) - selectedLoc.latitude) > 0.01 ||
-        Math.abs((storedLon ?? -999) - selectedLoc.longitude) > 0.01
-      )
-    : storedLat !== null  // "All locations" selected but DB has a specific location
+  // Has the selection diverged from what's stored?
+  const locationChanged = (() => {
+    if (selectedLocs.length !== storedLocations.length) return true
+    return selectedLocs.some(sl => !storedLocations.some(st => sameLoc(st, sl)))
+  })()
 
   const isTempThreshold = (t: AlertThreshold) => t.unit === '°C'
   const isWindThreshold = (t: AlertThreshold) => t.unit === 'km/h'
@@ -158,16 +171,16 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
       <div className="glass rounded-xl px-5 py-4 space-y-3">
         <div className="flex items-center gap-2">
           <MapPin size={14} className="text-sky-500 shrink-0" />
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Monitoring location</span>
-          <span className="text-xs text-slate-400 ml-1">— thresholds only fire for readings from this location</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Monitoring locations</span>
+          <span className="text-xs text-slate-400 ml-1">— select one or more; thresholds fire for readings from any selected location</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* "All locations" option */}
+          {/* "All locations" option — clears the selection */}
           <button
-            onClick={() => setSelectedIdx(-1)}
+            onClick={() => setSelectedIdxs([])}
             className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
-              selectedIdx === -1
+              selectedIdxs.length === 0
                 ? 'bg-slate-700 border-slate-500 text-white dark:bg-slate-600'
                 : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
             }`}
@@ -175,19 +188,23 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
             All locations
           </button>
 
-          {locationOptions.map((loc, i) => (
-            <button
-              key={i}
-              onClick={() => setSelectedIdx(i)}
-              className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
-                selectedIdx === i
-                  ? 'bg-sky-600 border-sky-500 text-white'
-                  : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600'
-              }`}
-            >
-              {loc.name}
-            </button>
-          ))}
+          {locationOptions.map((loc, i) => {
+            const on = selectedIdxs.includes(i)
+            return (
+              <button
+                key={i}
+                onClick={() => toggleIdx(i)}
+                aria-pressed={on}
+                className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                  on
+                    ? 'bg-sky-600 border-sky-500 text-white'
+                    : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-600'
+                }`}
+              >
+                {on && <span className="mr-1">✓</span>}{loc.name}
+              </button>
+            )
+          })}
 
           {locationChanged && (
             <button
@@ -208,8 +225,8 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
         </div>
 
         <p className="text-xs text-slate-400">
-          {selectedLoc
-            ? <>Alerts fire only for <strong className="text-slate-300">{selectedLoc.name}</strong> ({selectedLoc.latitude.toFixed(3)}°, {selectedLoc.longitude.toFixed(3)}°).</>
+          {selectedLocs.length
+            ? <>Alerts fire for <strong className="text-slate-300">{selectedLocs.map(l => l.name).join(', ')}</strong>.</>
             : 'Alerts fire for readings from any location.'}
         </p>
       </div>

@@ -69,7 +69,7 @@ export const api = {
   },
   thresholds: {
     list: () => get('/thresholds'),
-    update: (id: number, data: Partial<{ value: number; enabled: boolean; notify_email: boolean; severity: string; monitor_lat: number | null; monitor_lon: number | null; monitor_name: string | null }>) =>
+    update: (id: number, data: Partial<{ value: number; enabled: boolean; notify_email: boolean; severity: string; monitor_lat: number | null; monitor_lon: number | null; monitor_name: string | null; monitor_locations: { name: string; latitude: number; longitude: number }[] | null }>) =>
       put(`/thresholds/${id}`, data),
   },
   forecast: {
@@ -105,6 +105,7 @@ export const api = {
     updateSettings: (data: Partial<{
       share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number
       verify_deadline_days: number; verify_reminder1_days: number; verify_reminder2_days: number; verify_reminder3_days: number
+      notify_max_targets_user: number; notify_max_targets_admin: number; notify_max_targets_super_admin: number
       mail_mailer: string; mail_host: string | null; mail_port: number | null; mail_username: string | null
       mail_password: string; mail_encryption: string; mail_from_address: string | null; mail_from_name: string | null
     }>) => patch('/admin/settings', data),
@@ -118,7 +119,13 @@ export const api = {
   user: {
     getSettings: () => get('/user/settings'),
     updateSettings: (data: Partial<{ temp_unit: 'C' | 'F'; unit_system: 'auto' | 'metric' | 'imperial'; theme: 'dark' | 'light'; notification_urls: string | null }>) => put('/user/settings', data),
-    testNotification: (notification_urls: string | null) => post<{ message: string }>('/user/settings/test-notification', { notification_urls }),
+    notifications: () => get<{ targets: import('@/types/weather').NotificationTarget[]; max_targets: number }>('/user/notifications'),
+    addNotification: (data: { type: string; url: string; enabled?: boolean }) =>
+      post<import('@/types/weather').NotificationTarget>('/user/notifications', data),
+    updateNotification: (id: number, data: { type: string; url: string; enabled?: boolean }) =>
+      put<import('@/types/weather').NotificationTarget>(`/user/notifications/${id}`, data),
+    removeNotification: (id: number) => del<{ message: string }>(`/user/notifications/${id}`),
+    testNotification: (id: number) => post<{ message: string }>(`/user/notifications/${id}/test`),
     changePassword: (data: { current_password: string; password: string; password_confirmation: string }) =>
       post('/user/password', data),
     getLocations: () => get('/user/locations'),

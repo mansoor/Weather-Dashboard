@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle, Edit2, Mail, RefreshCw, Save, Shield, X, Share2 } from 'lucide-react'
+import { CheckCircle, Edit2, Mail, RefreshCw, Save, Shield, X, Share2, Bell } from 'lucide-react'
 import type { AdminUser, UserRole } from '@/types/weather'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -30,12 +30,13 @@ export default function AdminPanel() {
   type ShareSettings = {
     share_max_recipients: number; share_max_per_day: number; share_max_per_email_per_day: number
     verify_deadline_days: number; verify_reminder1_days: number; verify_reminder2_days: number; verify_reminder3_days: number
+    notify_max_targets_user: number; notify_max_targets_admin: number; notify_max_targets_super_admin: number
     mail_mailer: string; mail_host: string; mail_port: number; mail_username: string
     mail_encryption: string; mail_from_address: string; mail_from_name: string
     mail_password: string; mail_password_set: boolean
   }
   const [settings, setSettings] = useState<ShareSettings | null>(null)
-  type SettingsCard = 'share' | 'verify' | 'mail'
+  type SettingsCard = 'share' | 'verify' | 'notify' | 'mail'
   const [savingCard, setSavingCard] = useState<SettingsCard | null>(null)
   const [savedCard, setSavedCard] = useState<SettingsCard | null>(null)
   const [settingsError, setSettingsError] = useState<SettingsCard | null>(null)
@@ -75,6 +76,7 @@ export default function AdminPanel() {
   const cardKeys: Record<SettingsCard, (keyof ShareSettings)[]> = {
     share: ['share_max_recipients', 'share_max_per_day', 'share_max_per_email_per_day'],
     verify: ['verify_deadline_days', 'verify_reminder1_days', 'verify_reminder2_days', 'verify_reminder3_days'],
+    notify: ['notify_max_targets_user', 'notify_max_targets_admin', 'notify_max_targets_super_admin'],
     mail: ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_encryption', 'mail_from_address', 'mail_from_name'],
   }
 
@@ -161,6 +163,12 @@ export default function AdminPanel() {
     { key: 'verify_reminder3_days', label: 'Reminder 3', hint: 'days before deletion' },
   ]
 
+  const notifyFields: { key: keyof ShareSettings; label: string; hint: string }[] = [
+    { key: 'notify_max_targets_user', label: 'Users', hint: '0 = unlimited' },
+    { key: 'notify_max_targets_admin', label: 'Admins', hint: '0 = unlimited' },
+    { key: 'notify_max_targets_super_admin', label: 'Super admins', hint: '0 = unlimited' },
+  ]
+
   return (
     <div className="space-y-4 mt-6">
       {/* Share anti-spam settings */}
@@ -230,6 +238,43 @@ export default function AdminPanel() {
               </button>
               {savedCard === 'verify' && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle size={13} /> Saved</span>}
               {settingsError === 'verify' && <span className="text-xs text-red-500">Failed to save</span>}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">Loading…</p>
+        )}
+      </div>
+
+      {/* Notification target limits (per role) */}
+      <div className="glass rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell size={16} className="text-sky-500" />
+          <h2 className="font-semibold text-slate-800 dark:text-slate-200">Notification Target Limits</h2>
+          <span className="text-xs text-slate-500 ml-1">— max personal notification targets per role (0 = unlimited)</span>
+        </div>
+        {settings ? (
+          <div>
+            <div className="flex flex-wrap gap-4">
+              {notifyFields.map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{f.label}</label>
+                  <input
+                    type="number" min={0}
+                    value={settings[f.key] as number}
+                    onChange={e => setSettings({ ...settings, [f.key]: parseInt(e.target.value) || 0 })}
+                    className={`w-28 ${inputCls}`}
+                  />
+                  <div className="text-[11px] text-slate-400 mt-0.5">{f.hint}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <button onClick={() => saveSettings('notify')} disabled={savingCard === 'notify'}
+                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-md text-sm text-white">
+                <Save size={13} /> {savingCard === 'notify' ? 'Saving…' : 'Save'}
+              </button>
+              {savedCard === 'notify' && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle size={13} /> Saved</span>}
+              {settingsError === 'notify' && <span className="text-xs text-red-500">Failed to save</span>}
             </div>
           </div>
         ) : (

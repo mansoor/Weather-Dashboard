@@ -57,6 +57,7 @@ export interface AlertThreshold {
   monitor_lat: number | null
   monitor_lon: number | null
   monitor_name: string | null
+  monitor_locations: { name: string; latitude: number; longitude: number }[] | null
 }
 
 export interface WeatherStats {
@@ -106,6 +107,13 @@ export interface UserLocation {
   latitude: number
   longitude: number
   is_default: boolean
+}
+
+export interface NotificationTarget {
+  id: number
+  type: string
+  url: string
+  enabled: boolean
 }
 
 export interface UserSettings {

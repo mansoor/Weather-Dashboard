@@ -25,6 +25,10 @@ class ThresholdController extends Controller
             'monitor_lat'  => 'sometimes|nullable|numeric|between:-90,90',
             'monitor_lon'  => 'sometimes|nullable|numeric|between:-180,180',
             'monitor_name' => 'sometimes|nullable|string|max:100',
+            'monitor_locations'              => 'sometimes|nullable|array',
+            'monitor_locations.*.name'       => 'required_with:monitor_locations|string|max:100',
+            'monitor_locations.*.latitude'   => 'required_with:monitor_locations|numeric|between:-90,90',
+            'monitor_locations.*.longitude'  => 'required_with:monitor_locations|numeric|between:-180,180',
         ]);
 
         // Email alerts require a verified email address. (Resolve the Sanctum
