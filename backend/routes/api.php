@@ -65,6 +65,7 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->prefix('user')->group(function () {
     Route::get('/settings', [UserSettingController::class, 'show']);
     Route::put('/settings', [UserSettingController::class, 'update']);
+    Route::post('/settings/test-notification', [UserSettingController::class, 'testNotification']);
     Route::post('/password', [UserPasswordController::class, 'changePassword']);
 
     Route::get('/locations', [UserLocationController::class, 'index']);

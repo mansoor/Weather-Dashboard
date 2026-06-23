@@ -118,6 +118,7 @@ export const api = {
   user: {
     getSettings: () => get('/user/settings'),
     updateSettings: (data: Partial<{ temp_unit: 'C' | 'F'; unit_system: 'auto' | 'metric' | 'imperial'; theme: 'dark' | 'light'; notification_urls: string | null }>) => put('/user/settings', data),
+    testNotification: (notification_urls: string | null) => post<{ message: string }>('/user/settings/test-notification', { notification_urls }),
     changePassword: (data: { current_password: string; password: string; password_confirmation: string }) =>
       post('/user/password', data),
     getLocations: () => get('/user/locations'),

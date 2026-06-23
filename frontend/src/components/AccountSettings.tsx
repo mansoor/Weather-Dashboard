@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { KeyRound, Bell, Save, Loader2, CheckCircle, Ruler } from 'lucide-react'
+import { KeyRound, Bell, Save, Loader2, CheckCircle, Ruler, Send } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { api } from '@/lib/api'
@@ -19,6 +19,7 @@ export default function AccountSettings() {
   const [notifUrls, setNotifUrls] = useState(settings.notification_urls ?? '')
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifMsg, setNotifMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [notifTesting, setNotifTesting] = useState(false)
 
   if (!user) return null
 
@@ -52,6 +53,19 @@ export default function AccountSettings() {
       setNotifMsg({ ok: false, text: 'Failed to save notification settings.' })
     } finally {
       setNotifLoading(false)
+    }
+  }
+
+  const handleNotifTest = async () => {
+    setNotifTesting(true)
+    setNotifMsg(null)
+    try {
+      const res = await api.user.testNotification(notifUrls || null)
+      setNotifMsg({ ok: true, text: res.message })
+    } catch (e: any) {
+      setNotifMsg({ ok: false, text: e.message || 'Failed to send test notification.' })
+    } finally {
+      setNotifTesting(false)
     }
   }
 
@@ -190,14 +204,25 @@ export default function AccountSettings() {
             {notifMsg.text}
           </p>
         )}
-        <button
-          onClick={handleNotifSave}
-          disabled={notifLoading}
-          className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg text-sm text-white transition-colors"
-        >
-          {notifLoading ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-          Save Notifications
-        </button>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleNotifSave}
+            disabled={notifLoading || notifTesting}
+            className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg text-sm text-white transition-colors"
+          >
+            {notifLoading ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            Save Notifications
+          </button>
+          <button
+            onClick={handleNotifTest}
+            disabled={notifTesting || notifLoading || !notifUrls.trim()}
+            title={!notifUrls.trim() ? 'Add a notification URL first' : 'Send a test notification to these targets'}
+            className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 disabled:opacity-50 rounded-lg text-sm transition-colors"
+          >
+            {notifTesting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+            Send Test
+          </button>
+        </div>
       </div>
     </div>
   )
