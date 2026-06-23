@@ -646,7 +646,7 @@ export default function Dashboard() {
               <div className="space-y-4 sm:space-y-6">
                 {current ? (
                   <>
-                    <CurrentConditions reading={current} stats={stats} />
+                    <CurrentConditions reading={current} stats={stats} dayHigh={forecast?.daily?.[0]?.temp_max} dayLow={forecast?.daily?.[0]?.temp_min} />
                     <AIRecommendations reading={current} forecast={forecast} />
                     {forecast && <HourlyForecast hourly={forecast.hourly} timezone={forecast.timezone} aqiScale={forecast.aqi_scale} currentTemp={current?.temperature} />}
                     <MetricCards reading={current} />

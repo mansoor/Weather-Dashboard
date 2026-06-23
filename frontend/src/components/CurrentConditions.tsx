@@ -29,7 +29,12 @@ function useLocalClock(timezone: string | null) {
   return { time, date }
 }
 
-export default function CurrentConditions({ reading, stats }: { reading: WeatherReading; stats: WeatherStats | null }) {
+export default function CurrentConditions({ reading, stats, dayHigh, dayLow }: { reading: WeatherReading; stats: WeatherStats | null; dayHigh?: number | null; dayLow?: number | null }) {
+  // Prefer the day's forecast high/low (consistent with the hourly/daily
+  // forecast); fall back to the rolling observed stats when unavailable.
+  const highVal = dayHigh ?? stats?.temp_max ?? null
+  const lowVal = dayLow ?? stats?.temp_min ?? null
+  const hasHighLow = highVal != null || lowVal != null
   const { fmtTemp, fmtWind, effectiveSystem } = useSettings()
   const imperial = effectiveSystem === 'imperial'
   const visKm = reading.visibility != null ? Number(reading.visibility) / 1000 : null
@@ -71,10 +76,10 @@ export default function CurrentConditions({ reading, stats }: { reading: Weather
               valueStyle={{ color: aqiHex(reading.aqi, reading.aqi_scale) }}
             />
           )}
-          {stats && (
+          {hasHighLow && (
             <>
-              <StatPill icon={<ArrowUp size={14} className="text-red-400" />} label="High" value={fmtTemp(stats.temp_max, 1)} />
-              <StatPill icon={<ArrowDown size={14} className="text-sky-400" />} label="Low" value={fmtTemp(stats.temp_min, 1)} />
+              <StatPill icon={<ArrowUp size={14} className="text-red-400" />} label="High" value={fmtTemp(highVal, 1)} />
+              <StatPill icon={<ArrowDown size={14} className="text-sky-400" />} label="Low" value={fmtTemp(lowVal, 1)} />
             </>
           )}
         </div>
