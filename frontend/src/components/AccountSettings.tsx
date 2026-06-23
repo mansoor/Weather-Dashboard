@@ -20,6 +20,7 @@ const TARGET_TYPES: { type: string; label: string; template: string }[] = [
   { type: 'matrix',  label: 'Matrix',         template: 'matrix://USER:PASSWORD@HOSTNAME' },
   { type: 'twilio',  label: 'Twilio SMS',     template: 'twilio://ACCOUNT_SID:AUTH_TOKEN@FROM_PHONE/TO_PHONE' },
   { type: 'json',    label: 'Webhook (JSON)', template: 'json://HOSTNAME/PATH' },
+  { type: 'other',   label: 'Other…',         template: 'SCHEME://...' },
 ]
 
 const templateFor = (type: string) => TARGET_TYPES.find(t => t.type === type)?.template ?? `${type}://`
@@ -279,7 +280,7 @@ export default function AccountSettings() {
             <p className="text-xs text-slate-500 dark:text-slate-500">
               Add Apprise targets to receive your weather alerts. Pick a platform, then replace the{' '}
               <code className="font-mono">PLACEHOLDER</code> values.{' '}
-              <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener noreferrer"
+              <a href="https://appriseit.com/services/" target="_blank" rel="noopener noreferrer"
                 className="text-sky-500 hover:underline">See all platforms</a>.
               {maxTargets > 0 && (
                 <span className="ml-1 text-slate-400">({rows.length}/{maxTargets} used)</span>

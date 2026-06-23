@@ -14,6 +14,7 @@ class NotificationTargetController extends Controller
     private const TYPES = [
         'mailto', 'mailtos', 'discord', 'slack', 'ntfy', 'tgram',
         'pover', 'pushover', 'gotify', 'matrix', 'twilio', 'json', 'xml', 'webhook',
+        'other', // any other Apprise scheme the user enters manually
     ];
 
     public function index(Request $request): JsonResponse
