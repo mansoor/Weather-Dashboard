@@ -156,13 +156,16 @@ class AlertService
 
     private function createAlert(AlertThreshold $threshold, WeatherReading $reading, float $value): WeatherAlert
     {
+        $location = $reading->location_name ?: null;
+
         return WeatherAlert::create([
             'type' => $threshold->metric,
             'severity' => $threshold->severity,
-            'title' => $threshold->label,
+            'title' => $location ? $threshold->label.' — '.$location : $threshold->label,
             'message' => sprintf(
-                '%s: %.1f%s (threshold: %s%.1f%s)',
+                '%s%s: %.1f%s (threshold: %s%.1f%s)',
                 $threshold->label,
+                $location ? ' at '.$location : '',
                 $value,
                 $threshold->unit ?? '',
                 $threshold->operator,
