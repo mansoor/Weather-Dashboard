@@ -93,6 +93,8 @@ class AlertService
         }
 
         $typeMap = ['critical' => 'failure', 'warning' => 'warning', 'info' => 'info'];
+        $tz = $alert->reading?->timezone ?: config('app.timezone', 'UTC');
+        $localTime = $alert->created_at->copy()->setTimezone($tz)->format('Y-m-d H:i T');
 
         try {
             (new Client(['timeout' => 10]))->post("{$appriseUrl}/notify", [
@@ -101,7 +103,7 @@ class AlertService
                     'title' => '[Weather Alert] '.$alert->title,
                     'body'  => $alert->message
                         .' | Severity: '.ucfirst($alert->severity)
-                        .' | '.$alert->created_at->toDateTimeString(),
+                        .' | '.$localTime,
                     'type'  => $typeMap[$alert->severity] ?? 'info',
                 ],
             ]);

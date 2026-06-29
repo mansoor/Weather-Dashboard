@@ -30,6 +30,9 @@ import AIRecommendations from '@/components/AIRecommendations'
 
 type ActiveLocation = { name: string; latitude: number; longitude: number; isDefault?: boolean }
 
+// Fallback location when the user has no favorites and geolocation is unavailable.
+const DEFAULT_LOCATION: ActiveLocation = { name: 'San Francisco', latitude: 37.7749, longitude: -122.4194 }
+
 // IANA timezones where US customary units (mph, inches) are the norm.
 const US_TIMEZONES = new Set([
   'America/New_York', 'America/Detroit', 'America/Chicago', 'America/Menominee',
@@ -109,16 +112,20 @@ export default function Dashboard() {
   const dismissAllGuestAlerts = (ids: number[]) => persistGuestDismissed(Array.from(new Set([...guestDismissed, ...ids])))
 
   const loadDefaultData = useCallback(async () => {
+    // No favorite + no geolocation → default to San Francisco (live), rather than
+    // the server's configured baseline location.
+    const loc = DEFAULT_LOCATION
     try {
       setError(null)
-      const [cur, al, st] = await Promise.all([
-        api.weather.current() as Promise<WeatherReading>,
+      const [live, al, st] = await Promise.all([
+        api.weather.live(loc.latitude, loc.longitude, loc.name) as Promise<WeatherReading>,
         api.alerts.list() as Promise<WeatherAlert[]>,
-        api.weather.stats(historyHours) as Promise<WeatherStats>,
+        api.weather.stats(historyHours, loc.latitude, loc.longitude) as Promise<WeatherStats>,
       ])
-      setCurrent(cur)
+      setCurrent(live)
       setAlerts(al)
       setStats(st)
+      setActiveLocation(loc)
     } catch {
       setError('Could not reach the backend. Is it running?')
     } finally {

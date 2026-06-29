@@ -31,10 +31,28 @@ class CleanupUnverifiedUsers extends Command
         $deleted = 0;
         $reminded = 0;
 
-        User::whereNull('email_verified_at')->cursor()->each(function (User $user) use ($deadlineDays, $offsets, $now, &$deleted, &$reminded) {
+        // Only delete accounts if verification email can actually be delivered.
+        // With the `log` mailer (or no SMTP host) users can never receive the
+        // verification link, so auto-deleting them would be unfair — and would
+        // silently destroy active accounts. In that case we skip deletion.
+        \App\Support\MailSettings::apply();
+        $mailDeliverable = config('mail.default') !== 'log'
+            && !empty(config('mail.mailers.smtp.host'));
+
+        if (!$mailDeliverable) {
+            $this->warn('Mail is not deliverable (log driver / no SMTP host) — skipping unverified-account deletion.');
+        }
+
+        // Never auto-delete privileged accounts.
+        User::whereNull('email_verified_at')
+            ->where(function ($q) {
+                $q->whereNull('role')->orWhereNotIn('role', ['admin', 'super_admin']);
+            })
+            ->cursor()
+            ->each(function (User $user) use ($deadlineDays, $offsets, $now, $mailDeliverable, &$deleted, &$reminded) {
             $deadline = $user->created_at->copy()->addDays($deadlineDays);
 
-            if ($now->greaterThanOrEqualTo($deadline)) {
+            if ($mailDeliverable && $now->greaterThanOrEqualTo($deadline)) {
                 $this->deleteUser($user);
                 $deleted++;
                 return;

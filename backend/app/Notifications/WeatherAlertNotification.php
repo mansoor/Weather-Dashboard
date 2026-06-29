@@ -38,10 +38,17 @@ class WeatherAlertNotification extends Notification
             ->greeting('Weather Alert: '.$this->alert->title)
             ->line($this->alert->message)
             ->line('Severity: '.ucfirst($this->alert->severity))
-            ->line('Time: '.$this->alert->created_at->toDateTimeString())
+            ->line('Time: '.$this->localTime())
             ->action('View Dashboard', config('app.frontend_url', config('app.url')))
             ->line('This alert was generated automatically by your Weather Dashboard.')
             ->salutation('Weather Dashboard');
+    }
+
+    /** Alert timestamp in the monitored location's local timezone. */
+    private function localTime(): string
+    {
+        $tz = $this->alert->reading?->timezone ?: config('app.timezone', 'UTC');
+        return $this->alert->created_at->copy()->setTimezone($tz)->format('Y-m-d H:i T');
     }
 
     /** Payload for the Apprise channel. */
@@ -53,7 +60,7 @@ class WeatherAlertNotification extends Notification
             'title' => '[Weather Alert] '.$this->alert->title,
             'body'  => $this->alert->message
                 .' | Severity: '.ucfirst($this->alert->severity)
-                .' | '.$this->alert->created_at->toDateTimeString(),
+                .' | '.$this->localTime(),
             'type'  => $typeMap[$this->alert->severity] ?? 'info',
         ];
     }

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Psr\Http\Message\ResponseInterface;
 
 class ForecastController extends Controller
 {
@@ -17,7 +19,7 @@ class ForecastController extends Controller
         $client = new Client(['timeout' => 15]);
 
         try {
-            $response = $client->get(config('weather.open_meteo_url') . '/forecast', [
+            $response = $this->getWithRetry($client, config('weather.open_meteo_url') . '/forecast', [
                 'query' => [
                     'latitude'  => $lat,
                     'longitude' => $lon,
@@ -152,6 +154,25 @@ class ForecastController extends Controller
             'day_hourly'  => $dayHourly,
             'aqi_scale'   => $aqiScale,
         ])->header('Cache-Control', 'no-store, max-age=0');
+    }
+
+    /**
+     * GET with one retry on connection/timeout failures (cURL 28 → Guzzle
+     * ConnectException). HTTP error responses are not retried.
+     */
+    private function getWithRetry(Client $client, string $url, array $options, int $attempts = 2): ResponseInterface
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return $client->get($url, $options);
+            } catch (ConnectException $e) {
+                if ($attempt >= $attempts) {
+                    throw $e;
+                }
+                Log::warning("Forecast request failed (attempt {$attempt}/{$attempts}), retrying: ".$e->getMessage());
+                usleep(500_000);
+            }
+        }
     }
 
     /**

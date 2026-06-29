@@ -21,39 +21,50 @@ class FetchWeatherJob implements ShouldQueue
 
     public function handle(WeatherService $weather, AlertService $alerts): void
     {
-        // 1. Default configured location
+        $userLocations = UserLocation::select('name', 'latitude', 'longitude')->get();
+
+        // 1. Default configured location — always fetched & stored so the dashboard
+        // has a baseline reading, but only evaluated for alerts when a user has
+        // actually saved this location. Otherwise the configured default (e.g.
+        // London) would spam alerts that nobody asked to monitor.
         try {
-            $reading  = $weather->fetchAndStore();
-            $triggered = $alerts->evaluate($reading);
+            $reading = $weather->fetchAndStore();
+            $monitored = $this->isMonitored($reading->latitude, $reading->longitude, $userLocations);
+            $triggered = $monitored ? $alerts->evaluate($reading) : [];
             Log::info('Weather fetched', [
-                'temp'     => $reading->temperature,
-                'location' => $reading->location_name,
-                'alerts'   => count($triggered),
+                'temp'      => $reading->temperature,
+                'location'  => $reading->location_name,
+                'evaluated' => $monitored,
+                'alerts'    => count($triggered),
             ]);
         } catch (\Throwable $e) {
             Log::error('Default weather fetch failed: '.$e->getMessage());
             throw $e;
         }
 
-        // 2. User-favorited locations — fetched once per physical location.
-        // Dedup by coordinates rounded to ~1.1 km (2 decimals) rather than by the
-        // (name, lat, lon) tuple, so the same place saved under different names
-        // (e.g. "Boston" vs "Boston, MA") triggers a single API call & shared rows.
+        // 2. User-favorited locations — fetched once per physical location, then
+        // evaluated for alerts. Dedup by coordinates rounded to ~1.1 km (2 decimals)
+        // rather than by the (name, lat, lon) tuple, so the same place saved under
+        // different names (e.g. "Boston" vs "Boston, MA") triggers a single API
+        // call & shared rows.
         $defaultLat = (float) config('weather.location.lat');
         $defaultLon = (float) config('weather.location.lon');
 
-        UserLocation::select('name', 'latitude', 'longitude')
-            ->get()
+        $userLocations
             ->reject(fn ($loc) =>
                 abs($loc->latitude - $defaultLat) < 0.05 &&
                 abs($loc->longitude - $defaultLon) < 0.05
             )
             ->groupBy(fn ($loc) => round($loc->latitude, 2) . ',' . round($loc->longitude, 2))
             ->map(fn ($group) => $group->first())   // one representative per location
-            ->each(function ($loc) use ($weather) {
+            ->each(function ($loc) use ($weather, $alerts) {
                 try {
-                    $weather->fetchAndStoreForLocation($loc->latitude, $loc->longitude, $loc->name);
-                    Log::debug('User location weather fetched', ['location' => $loc->name]);
+                    $reading = $weather->fetchAndStoreForLocation($loc->latitude, $loc->longitude, $loc->name);
+                    $triggered = $alerts->evaluate($reading);
+                    Log::debug('User location weather fetched', [
+                        'location' => $loc->name,
+                        'alerts'   => count($triggered),
+                    ]);
                 } catch (\Throwable $e) {
                     Log::warning('User location fetch failed', [
                         'location' => $loc->name,
@@ -61,5 +72,16 @@ class FetchWeatherJob implements ShouldQueue
                     ]);
                 }
             });
+    }
+
+    /** Is this coordinate one of the user-saved locations (within ~5 km)? */
+    private function isMonitored(float $lat, float $lon, $userLocations): bool
+    {
+        foreach ($userLocations as $loc) {
+            if (abs($loc->latitude - $lat) < 0.05 && abs($loc->longitude - $lon) < 0.05) {
+                return true;
+            }
+        }
+        return false;
     }
 }

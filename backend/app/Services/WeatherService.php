@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\WeatherReading;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
 use Illuminate\Support\Facades\Log;
+use Psr\Http\Message\ResponseInterface;
 
 class WeatherService
 {
@@ -132,6 +134,26 @@ class WeatherService
         ];
     }
 
+    /**
+     * GET with one retry on connection/timeout failures (cURL 28 surfaces as a
+     * Guzzle ConnectException). HTTP error responses are not retried — only
+     * transient connectivity issues to Open-Meteo.
+     */
+    private function getWithRetry(string $url, array $options, int $attempts = 2): ResponseInterface
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return $this->client->get($url, $options);
+            } catch (ConnectException $e) {
+                if ($attempt >= $attempts) {
+                    throw $e;
+                }
+                Log::warning("Open-Meteo request failed (attempt {$attempt}/{$attempts}), retrying: ".$e->getMessage());
+                usleep(500_000); // 0.5s backoff before the retry
+            }
+        }
+    }
+
     private function fetchWeather(float $lat, float $lon): array
     {
         $url    = config('weather.open_meteo_url').'/forecast';
@@ -148,7 +170,7 @@ class WeatherService
             'timezone'        => 'auto',
         ];
 
-        $response = $this->client->get($url, ['query' => $params]);
+        $response = $this->getWithRetry($url, ['query' => $params]);
         $data     = json_decode($response->getBody()->getContents(), true);
         $current  = $data['current'] ?? [];
 
@@ -171,7 +193,7 @@ class WeatherService
                 'timezone' => 'auto',
             ];
 
-            $response = $this->client->get($url, ['query' => $params]);
+            $response = $this->getWithRetry($url, ['query' => $params]);
             $data     = json_decode($response->getBody()->getContents(), true);
 
             return $data['current'] ?? [];
