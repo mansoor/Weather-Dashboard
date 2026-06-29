@@ -52,19 +52,33 @@ const STOPS: [number, [number, number, number]][] = [
   [-10, [30, 58, 138]], [0, [37, 99, 235]], [8, [6, 182, 212]],
   [16, [34, 197, 94]],  [22, [234, 179, 8]], [28, [249, 115, 22]], [36, [220, 38, 38]],
 ]
-function tempColor(t: number | null): string {
-  if (t == null) return 'rgb(100,116,139)'
-  if (t <= STOPS[0][0]) return `rgb(${STOPS[0][1].join(',')})`
-  if (t >= STOPS[STOPS.length - 1][0]) return `rgb(${STOPS[STOPS.length - 1][1].join(',')})`
+/** Interpolate the temperature gradient to an [r,g,b] triple. */
+function tempRGB(t: number | null): [number, number, number] {
+  if (t == null) return [100, 116, 139]
+  if (t <= STOPS[0][0]) return STOPS[0][1]
+  if (t >= STOPS[STOPS.length - 1][0]) return STOPS[STOPS.length - 1][1]
   for (let i = 0; i < STOPS.length - 1; i++) {
     const [t0, c0] = STOPS[i], [t1, c1] = STOPS[i + 1]
     if (t >= t0 && t <= t1) {
       const k = (t - t0) / (t1 - t0)
-      const c = c0.map((v, j) => Math.round(v + (c1[j] - v) * k))
-      return `rgb(${c.join(',')})`
+      return c0.map((v, j) => Math.round(v + (c1[j] - v) * k)) as [number, number, number]
     }
   }
-  return 'rgb(100,116,139)'
+  return [100, 116, 139]
+}
+function tempColor(t: number | null): string {
+  return `rgb(${tempRGB(t).join(',')})`
+}
+/**
+ * Ring colour for a (possibly interpolated) temperature. Past hours are dimmed
+ * by blending toward the night slate — baked into the colour rather than using
+ * opacity, so overlapping gradient segments don't create darker seams.
+ */
+function ringColor(t: number | null, past: boolean): string {
+  const rgb = tempRGB(t)
+  if (!past) return `rgb(${rgb.join(',')})`
+  const dark = [15, 23, 42]
+  return `rgb(${rgb.map((v, i) => Math.round(v * 0.5 + dark[i] * 0.5)).join(',')})`
 }
 
 // ── Time helpers ──────────────────────────────────────────────
@@ -174,6 +188,20 @@ export default function SunriseSunset({
   const temps = ringData.map(d => d.temperature).filter((t): t is number => t != null)
   const minT = temps.length ? Math.min(...temps) : 0
   const maxT = temps.length ? Math.max(...temps) : 30
+
+  // Temperature at a continuous hour-of-day, linearly interpolated between the
+  // two surrounding hourly samples (wrapping across midnight) so the thermal
+  // ring transitions smoothly instead of in 24 hard steps.
+  const tempAt = (hf: number): number | null => {
+    const base = ((Math.floor(hf) % 24) + 24) % 24
+    const next = (base + 1) % 24
+    const frac = hf - Math.floor(hf)
+    const t0 = byHour.get(base)?.temperature ?? null
+    const t1 = byHour.get(next)?.temperature ?? null
+    if (t0 == null) return t1
+    if (t1 == null) return t0
+    return t0 + (t1 - t0) * frac
+  }
 
   // ── Day / night arc samples on the orbit ──
   const arcPath = (from: number, to: number) => {
@@ -371,18 +399,26 @@ export default function SunriseSunset({
         {nightArc && <polyline points={nightArc} fill="none" stroke="#4338ca" strokeWidth="2.5" strokeLinecap="round" opacity="0.55" />}
         {dayArc && <polyline points={dayArc} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />}
 
-        {/* ── Thermal ring: one wedge per hour, coloured by temperature ── */}
-        {Array.from({ length: 24 }, (_, h) => {
-          const d = byHour.get(h)
-          const isActive = activeHourInt === h
-          return (
-            <path key={h} d={sector(R_RING_OUT, R_RING_IN, h - 0.5, h + 0.5)}
-              fill={tempColor(d?.temperature ?? null)}
-              opacity={d?.is_past ? 0.45 : 0.92}
-              stroke={isActive ? '#fff' : 'none'} strokeWidth={isActive ? 1.5 : 0}
-              style={{ transition: 'opacity .2s' }} />
-          )
-        })}
+        {/* ── Thermal ring: smooth gradient, interpolated between hourly temps ── */}
+        {(() => {
+          const SEG_PER_HOUR = 6
+          const step = 1 / SEG_PER_HOUR
+          return Array.from({ length: 24 * SEG_PER_HOUR }, (_, i) => {
+            const a0 = i * step
+            const hc = a0 + step / 2                       // segment centre hour
+            const cellHour = ((Math.round(hc) % 24) + 24) % 24
+            const past = byHour.get(cellHour)?.is_past ?? false
+            // Slight overlap (opaque fill) avoids anti-aliased seams between segments.
+            return (
+              <path key={i} d={sector(R_RING_OUT, R_RING_IN, a0 - 0.03, a0 + step + 0.03)}
+                fill={ringColor(tempAt(hc), past)} />
+            )
+          })
+        })()}
+
+        {/* Active-hour outline on the thermal ring */}
+        <path d={sector(R_RING_OUT, R_RING_IN, activeHourInt - 0.5, activeHourInt + 0.5)}
+          fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.9" pointerEvents="none" />
 
         {/* ── Air-quality ring: one wedge per hour, coloured by European AQI ── */}
         {Array.from({ length: 24 }, (_, h) => {
