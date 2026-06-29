@@ -111,6 +111,36 @@ export default function Dashboard() {
   const dismissGuestAlert = (id: number) => persistGuestDismissed(Array.from(new Set([...guestDismissed, id])))
   const dismissAllGuestAlerts = (ids: number[]) => persistGuestDismissed(Array.from(new Set([...guestDismissed, ...ids])))
 
+  // ── Stale-while-revalidate cache ──────────────────────────────────────────
+  // Hydrate the last view from localStorage on mount so the dashboard shows the
+  // most recent data instantly, then the normal fetch refreshes it in the
+  // background. Also remembers the last-viewed location so a refresh stays put.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('weather_snapshot')
+      if (!raw) return
+      const s = JSON.parse(raw)
+      if (s.location) setActiveLocation(s.location)
+      if (s.current) setCurrent(s.current)
+      if (s.stats) setStats(s.stats)
+      if (s.forecast) setForecast(s.forecast)
+      if (s.current) {
+        setLoading(false) // show cached data immediately, no spinner
+        if (s.savedAt) setLastUpdated(new Date(s.savedAt))
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  // Persist the current view (location + data) for the next visit / refresh.
+  useEffect(() => {
+    if (!activeLocation || !current) return
+    try {
+      localStorage.setItem('weather_snapshot', JSON.stringify({
+        location: activeLocation, current, stats, forecast, savedAt: Date.now(),
+      }))
+    } catch { /* ignore */ }
+  }, [activeLocation, current, stats, forecast])
+
   const loadDefaultData = useCallback(async () => {
     // No favorite + no geolocation → default to San Francisco (live), rather than
     // the server's configured baseline location.
@@ -126,6 +156,7 @@ export default function Dashboard() {
       setAlerts(al)
       setStats(st)
       setActiveLocation(loc)
+      setLastUpdated(new Date())
     } catch {
       setError('Could not reach the backend. Is it running?')
     } finally {
@@ -144,6 +175,7 @@ export default function Dashboard() {
       setCurrent(live)
       setAlerts(al)
       setStats(st)
+      setLastUpdated(new Date())
     } catch {
       setError('Could not fetch weather for this location.')
     } finally {
@@ -189,6 +221,19 @@ export default function Dashboard() {
         return
       }
     }
+
+    // The last-viewed location (persisted) wins so a manual selection sticks
+    // across refreshes instead of reverting to geolocation. Cached data is
+    // already on screen from the hydrate effect; this just refreshes it.
+    try {
+      const raw = localStorage.getItem('weather_snapshot')
+      const persisted = raw ? JSON.parse(raw).location : null
+      if (persisted && Number.isFinite(persisted.latitude) && Number.isFinite(persisted.longitude)) {
+        setActiveLocation(persisted)
+        loadLiveData(persisted)
+        return
+      }
+    } catch { /* ignore */ }
 
     // A logged-in user's default location takes priority over geolocation and
     // the app's fallback — show it immediately on load.
