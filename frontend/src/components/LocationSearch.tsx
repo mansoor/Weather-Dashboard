@@ -52,7 +52,7 @@ export default function LocationSearch({ onSelect }: Props) {
   }
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="relative w-full">
       <div className="flex items-center gap-2 bg-white border border-slate-300 dark:bg-slate-800 dark:border-slate-700 rounded-lg px-3 py-1.5 focus-within:border-sky-500 transition-colors">
         {loading
           ? <Loader2 size={14} className="text-slate-400 animate-spin shrink-0" />
@@ -62,7 +62,7 @@ export default function LocationSearch({ onSelect }: Props) {
           onChange={e => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Search city or location…"
-          className="bg-transparent text-sm text-slate-800 placeholder-slate-400 dark:text-slate-200 dark:placeholder-slate-500 focus:outline-none w-48"
+          className="bg-transparent text-sm text-slate-800 placeholder-slate-400 dark:text-slate-200 dark:placeholder-slate-500 focus:outline-none w-full min-w-0"
         />
       </div>
 

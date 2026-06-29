@@ -459,7 +459,9 @@ export default function Dashboard() {
 
           {/* Center: location search */}
           <div className="flex-1 flex justify-center px-2 min-w-0">
-            <LocationSearch onSelect={handleLocationSelect} />
+            <div className="w-full max-w-xs">
+              <LocationSearch onSelect={handleLocationSelect} />
+            </div>
           </div>
 
           {/* Right: clock + theme + user */}
