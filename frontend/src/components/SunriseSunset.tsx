@@ -81,6 +81,40 @@ function ringColor(t: number | null, past: boolean): string {
   return `rgb(${rgb.map((v, i) => Math.round(v * 0.5 + dark[i] * 0.5)).join(',')})`
 }
 
+// ── AQI → colour (continuous) ─────────────────────────────────
+// Category colours anchored at each band's midpoint so the ring blends smoothly
+// across category boundaries instead of jumping. Matches aqiHex's palette.
+const AQI_STOPS: Record<'us' | 'eu', [number, [number, number, number]][]> = {
+  us: [
+    [25, [22, 163, 74]], [75, [234, 179, 8]], [125, [249, 115, 22]],
+    [175, [220, 38, 38]], [250, [126, 34, 206]], [400, [127, 29, 29]],
+  ],
+  eu: [
+    [10, [22, 163, 74]], [30, [132, 204, 22]], [50, [234, 179, 8]],
+    [70, [249, 115, 22]], [90, [220, 38, 38]], [120, [126, 34, 206]],
+  ],
+}
+function aqiRGB(v: number | null, scale: 'us' | 'eu'): [number, number, number] {
+  if (v == null) return [100, 116, 139]
+  const stops = AQI_STOPS[scale]
+  if (v <= stops[0][0]) return stops[0][1]
+  if (v >= stops[stops.length - 1][0]) return stops[stops.length - 1][1]
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [v0, c0] = stops[i], [v1, c1] = stops[i + 1]
+    if (v >= v0 && v <= v1) {
+      const k = (v - v0) / (v1 - v0)
+      return c0.map((c, j) => Math.round(c + (c1[j] - c) * k)) as [number, number, number]
+    }
+  }
+  return [100, 116, 139]
+}
+function aqiRingColor(v: number | null, scale: 'us' | 'eu', past: boolean): string {
+  const rgb = aqiRGB(v, scale)
+  if (!past) return `rgb(${rgb.join(',')})`
+  const dark = [15, 23, 42]
+  return `rgb(${rgb.map((c, i) => Math.round(c * 0.5 + dark[i] * 0.5)).join(',')})`
+}
+
 // ── Time helpers ──────────────────────────────────────────────
 function tzParts(tz: string | null) {
   try {
@@ -201,6 +235,18 @@ export default function SunriseSunset({
     if (t0 == null) return t1
     if (t1 == null) return t0
     return t0 + (t1 - t0) * frac
+  }
+
+  // Same interpolation for AQI, so the air-quality ring is also a smooth gradient.
+  const aqiAt = (hf: number): number | null => {
+    const base = ((Math.floor(hf) % 24) + 24) % 24
+    const next = (base + 1) % 24
+    const frac = hf - Math.floor(hf)
+    const a0 = byHour.get(base)?.aqi ?? null
+    const a1 = byHour.get(next)?.aqi ?? null
+    if (a0 == null) return a1
+    if (a1 == null) return a0
+    return a0 + (a1 - a0) * frac
   }
 
   // ── Day / night arc samples on the orbit ──
@@ -420,16 +466,23 @@ export default function SunriseSunset({
         <path d={sector(R_RING_OUT, R_RING_IN, activeHourInt - 0.5, activeHourInt + 0.5)}
           fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.9" pointerEvents="none" />
 
-        {/* ── Air-quality ring: one wedge per hour, coloured by European AQI ── */}
-        {Array.from({ length: 24 }, (_, h) => {
-          const d = byHour.get(h)
-          if (d?.aqi == null) return null
-          return (
-            <path key={h} d={sector(R_AQI_OUT, R_AQI_IN, h - 0.5, h + 0.5)}
-              fill={aqiHex(d.aqi, aqiScale)} opacity={d.is_past ? 0.4 : 0.88}
-              style={{ transition: 'opacity .2s' }} />
-          )
-        })}
+        {/* ── Air-quality ring: smooth gradient, interpolated between hourly AQI ── */}
+        {(() => {
+          const SEG_PER_HOUR = 6
+          const step = 1 / SEG_PER_HOUR
+          return Array.from({ length: 24 * SEG_PER_HOUR }, (_, i) => {
+            const a0 = i * step
+            const hc = a0 + step / 2
+            const v = aqiAt(hc)
+            if (v == null) return null
+            const cellHour = ((Math.round(hc) % 24) + 24) % 24
+            const past = byHour.get(cellHour)?.is_past ?? false
+            return (
+              <path key={i} d={sector(R_AQI_OUT, R_AQI_IN, a0 - 0.03, a0 + step + 0.03)}
+                fill={aqiRingColor(v, aqiScale, past)} />
+            )
+          })
+        })()}
 
         {/* ── Hour ticks ── */}
         {Array.from({ length: 24 }, (_, h) => {
