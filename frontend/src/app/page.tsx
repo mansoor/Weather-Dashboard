@@ -166,7 +166,7 @@ export default function Dashboard() {
     }
   }, [activeLocation?.latitude, activeLocation?.longitude])
 
-  // Initial load: shared deep-link → geolocation → configured default
+  // Initial load: shared deep-link → user's default location → geolocation → app default
   useEffect(() => {
     if (authLoading || initialLoadDone.current) return
     initialLoadDone.current = true
@@ -188,6 +188,22 @@ export default function Dashboard() {
         window.history.replaceState({}, '', window.location.pathname)
         return
       }
+    }
+
+    // A logged-in user's default location takes priority over geolocation and
+    // the app's fallback — show it immediately on load.
+    const defaultFav = locations.find(l => l.is_default)
+    if (defaultFav) {
+      const loc: ActiveLocation = {
+        name: defaultFav.name,
+        latitude: defaultFav.latitude,
+        longitude: defaultFav.longitude,
+        isDefault: true,
+      }
+      setActiveLocation(loc)
+      setLoading(true)
+      loadLiveData(loc)
+      return
     }
 
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
@@ -212,7 +228,7 @@ export default function Dashboard() {
     } else {
       loadDefaultData()
     }
-  }, [authLoading, loadLiveData, loadDefaultData])
+  }, [authLoading, locations, loadLiveData, loadDefaultData])
 
   // Auto-refresh every 60 s (runs regardless of how initial load happened)
   useEffect(() => {
