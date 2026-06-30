@@ -8,6 +8,7 @@ use App\Models\WeatherAlert;
 use App\Models\WeatherReading;
 use App\Notifications\WeatherAlertNotification;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -46,8 +47,15 @@ class AlertService
             }
 
             if ($this->breaches($value, $threshold->operator, $threshold->value)) {
+                // Per-threshold cooldown: suppress repeat alerts/notifications for
+                // the same breach at the same location until the interval elapses.
+                if (!$this->cooldownElapsed($threshold, $reading)) {
+                    continue;
+                }
+
                 $alert = $this->createAlert($threshold, $reading, $value);
                 $triggered[] = $alert;
+                $this->markTriggered($threshold, $reading);
 
                 $notified = false;
 
@@ -142,6 +150,47 @@ class AlertService
         }
 
         return true; // all locations
+    }
+
+    /** Stable key identifying a location for cooldown tracking. */
+    private function locationKey(WeatherReading $reading): string
+    {
+        return round($reading->latitude, 2) . ',' . round($reading->longitude, 2);
+    }
+
+    /**
+     * Has enough time passed since this threshold last fired at this location?
+     * Returns true when there is no cooldown, no prior record, or the interval
+     * has elapsed.
+     */
+    private function cooldownElapsed(AlertThreshold $threshold, WeatherReading $reading): bool
+    {
+        $cooldown = max(0, (int) ($threshold->cooldown_minutes ?? 0));
+        if ($cooldown === 0) {
+            return true;
+        }
+
+        $row = DB::table('alert_notifications')
+            ->where('threshold_id', $threshold->id)
+            ->where('location_key', $this->locationKey($reading))
+            ->first();
+
+        if (!$row || !$row->last_notified_at) {
+            return true;
+        }
+
+        return \Illuminate\Support\Carbon::parse($row->last_notified_at)
+            ->addMinutes($cooldown)
+            ->lessThanOrEqualTo(now());
+    }
+
+    /** Record that this threshold just fired at this location. */
+    private function markTriggered(AlertThreshold $threshold, WeatherReading $reading): void
+    {
+        DB::table('alert_notifications')->updateOrInsert(
+            ['threshold_id' => $threshold->id, 'location_key' => $this->locationKey($reading)],
+            ['last_notified_at' => now()],
+        );
     }
 
     private function breaches(float $value, string $operator, float $threshold): bool

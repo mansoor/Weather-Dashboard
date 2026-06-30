@@ -22,6 +22,7 @@ class ThresholdController extends Controller
             'enabled'      => 'sometimes|boolean',
             'notify_email' => 'sometimes|boolean',
             'severity'     => 'sometimes|in:info,warning,critical',
+            'cooldown_minutes' => 'sometimes|integer|min:0|max:10080',
             'monitor_lat'  => 'sometimes|nullable|numeric|between:-90,90',
             'monitor_lon'  => 'sometimes|nullable|numeric|between:-180,180',
             'monitor_name' => 'sometimes|nullable|string|max:100',

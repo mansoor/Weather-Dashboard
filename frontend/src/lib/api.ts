@@ -69,7 +69,7 @@ export const api = {
   },
   thresholds: {
     list: () => get('/thresholds'),
-    update: (id: number, data: Partial<{ value: number; enabled: boolean; notify_email: boolean; severity: string; monitor_lat: number | null; monitor_lon: number | null; monitor_name: string | null; monitor_locations: { name: string; latitude: number; longitude: number }[] | null }>) =>
+    update: (id: number, data: Partial<{ value: number; enabled: boolean; notify_email: boolean; cooldown_minutes: number; severity: string; monitor_lat: number | null; monitor_lon: number | null; monitor_name: string | null; monitor_locations: { name: string; latitude: number; longitude: number }[] | null }>) =>
       put(`/thresholds/${id}`, data),
   },
   forecast: {

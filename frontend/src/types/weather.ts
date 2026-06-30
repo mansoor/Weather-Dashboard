@@ -54,6 +54,7 @@ export interface AlertThreshold {
   label: string
   enabled: boolean
   notify_email: boolean
+  cooldown_minutes: number
   monitor_lat: number | null
   monitor_lon: number | null
   monitor_name: string | null

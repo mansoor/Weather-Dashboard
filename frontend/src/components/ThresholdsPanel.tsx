@@ -14,6 +14,14 @@ interface MonitorLocation {
   longitude: number
 }
 
+/** Friendly description of a cooldown interval in minutes. */
+function cooldownHint(min: number): string {
+  if (!min || min <= 0) return 'every update'
+  if (min < 60) return `every ${min}m`
+  const h = Math.floor(min / 60), m = min % 60
+  return m ? `every ${h}h ${m}m` : `every ${h}h`
+}
+
 interface Props {
   onUpdate: () => void
   locations?: UserLocation[]
@@ -240,6 +248,7 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
               <th className="text-left p-4">Condition</th>
               <th className="text-left p-4">Threshold</th>
               <th className="text-left p-4">Severity</th>
+              <th className="text-left p-4">Repeat<div className="font-normal normal-case text-[10px] text-slate-400 mt-0.5">min between alerts</div></th>
               <th className="text-center p-4">Enabled</th>
               <th className="text-center p-4">
                 Email
@@ -297,6 +306,19 @@ export default function ThresholdsPanel({ onUpdate, locations = [], defaultLocat
                     <option value="warning">Warning</option>
                     <option value="critical">Critical</option>
                   </select>
+                </td>
+                <td className="p-4">
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" min={0} step={5}
+                      value={getValue(t, 'cooldown_minutes') as number}
+                      onChange={e => editNonValue(t.id, { cooldown_minutes: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className={`w-16 ${inputCls}`}
+                      title="Minimum minutes between repeat notifications (0 = every cycle)"
+                    />
+                    <span className="text-slate-500 text-xs">min</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{cooldownHint(getValue(t, 'cooldown_minutes') as number)}</div>
                 </td>
                 <td className="p-4 text-center">
                   <input type="checkbox"
